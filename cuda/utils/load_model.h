@@ -6,7 +6,7 @@
 #include <string>
 
 #include <dirent.h>
-#include "cnpy.h"
+#include "../reference/cnpy.h"
 #include "cuda_runtime.h"
 
 #include "common.h"
