@@ -16,8 +16,6 @@
 #include <cuda_runtime.h>
 #include <cuda_fp16.h>
 
-#include "../reference/cnpy.h"
-
 template <typename T>
 __device__ __forceinline__ T WARP_SHFL(T value, int srcLane, int width = warpSize, unsigned int mask = 0xffffffff)
 {
