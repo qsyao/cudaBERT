@@ -53,11 +53,9 @@ def warp_inputs(indexed_tokens, segments_ids, attention_masks):
 
 tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 
-def test(is_large, model_dir):
-    
-    seq_length = 11
-    batchsize = 1
+def test(is_large, model_dir, batchsize, seq_length):
     Iters = 1
+    assert( seq_length * batchsize < 80 * 1000, "Seq_length * Batchsize is too large")
     max_length = batchsize * seq_length
 
     tokenized_text = ['who', 'was', 'jim', 'henson', '?', 'jim', '[MASK]', 'was', 'a', 'puppet', '##eer']
@@ -76,12 +74,17 @@ def test(is_large, model_dir):
     c_indexed_tokens = numpy.array(indexed_tokens).astype(numpy.int32)
     c_attention_mask = numpy.array(attention_mask).astype(numpy.int32)
 
-    model = load_model(is_large, bytes(model_dir, encoding='utf-8'))
+    model = load_model(is_large, model_dir)
 
-    ret = inference(model, c_indexed_tokens, c_segments_ids, batchsize, seq_length, c_attention_mask)
+    import time
+    start = time.time()
+    for i in range(Iters):
+        ret = inference(model, c_indexed_tokens, c_segments_ids, batchsize, seq_length, c_attention_mask)
+    end = time.time()
+    print("Batchsize: {} Seq_length: {} Use_Time: {}".format(batchsize, seq_length, (end - start)/Iters))
 
 if __name__ == "__main__":
-    test(False, "model_npy/base_uncased")
+    test(False, "model_npy/base_uncased", 200, 128)
 
 
 
