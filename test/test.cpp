@@ -1,6 +1,11 @@
 #include "../cuda_bert.cuh"
+#include <string>
 
-int main(){
-   test(200, 128, 10, false);
+int main(int argc, char *argv[]){
+   if (argc == 1)
+       test(200, 128, 10, false);
+   else{
+      test(std::stoi(argv[1]), std::stoi(argv[2]), std::stoi(argv[3]), false, std::stoi(argv[4]));
+   }
    return 0;
 }
