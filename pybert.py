@@ -53,7 +53,7 @@ def warp_inputs(indexed_tokens, segments_ids, attention_masks):
 
 tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 
-def test(is_large, model_dir, batchsize, seq_length):
+def test(is_large, model_dir, batchsize, seq_length, num_gpu=0):
     Iters = 1
     assert( seq_length * batchsize < 80 * 1000, "Seq_length * Batchsize is too large")
     max_length = batchsize * seq_length
@@ -74,7 +74,7 @@ def test(is_large, model_dir, batchsize, seq_length):
     c_indexed_tokens = numpy.array(indexed_tokens).astype(numpy.int32)
     c_attention_mask = numpy.array(attention_mask).astype(numpy.int32)
 
-    model = load_model(is_large, model_dir)
+    model = load_model(is_large, model_dir, num_gpu=num_gpu)
 
     import time
     start = time.time()

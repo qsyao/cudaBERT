@@ -7,14 +7,14 @@ global_manager::global_manager (bool BERT_Large, int num_gpu, std::string dir) {
                 num_hidden_layers = 24;
                 num_attention_heads = 16;
                 intermediate_size = 4096;
-                max_mem_size = 80 * 1000;
+                max_mem_size = 200 * 512;
             }
             if (dir != "") 
                 dir_npy = dir;
             load_from_dir_to_GPU(dir_npy, tts);
             weights = load_dict_weights(tts, num_hidden_layers);
             checkError(cublasCreate(&handle), "cublasCreate() error!\n");
-            init_cudamemory(max_batchsize, max_mem_size / max_batchsize);
+            init_cudamemory(max_mem_size / max_seq_length, max_seq_length);
             prepare_linear(this, tts, weights);
             cudaStreamCreate(&cal_stream);
             cudaStreamCreate(&copy_stream);
@@ -30,7 +30,17 @@ global_manager::~global_manager(){
         }
 
 void global_manager::init_cudamemory(int batchsize, int seq_length){
-            global_malloc_manage_float.init(batchsize*seq_length*hidden_size + 
+            global_malloc_manage_int.init(batchsize * seq_length * 4);
+
+            size_t left, total, real_Memcost;
+            checkCudaErrors(cudaMemGetInfo(&left, &total));
+            left -= 1024 * 1024 * 500;
+            std::cout<<"CUDA Memory INFO: Free: "<< left / 1024 / 1024 <<"MB"<<std::endl;
+            left = left / sizeof(float);
+            global_malloc_manage_float.init(left);
+            
+            while(1){
+                real_Memcost        =          batchsize*seq_length*hidden_size + 
                                             batchsize*hidden_size*3 +  
                                             1 * 
                                             (batchsize*seq_length*hidden_size*6 + 
@@ -41,9 +51,17 @@ void global_manager::init_cudamemory(int batchsize, int seq_length){
                                             batchsize*seq_length*2 +
                                             3*hidden_size*hidden_size) + 
                                             batchsize*hidden_size*2 +
-                                            batchsize*seq_length*hidden_size);
-
-            global_malloc_manage_int.init(batchsize * seq_length * 4);
+                                            batchsize*seq_length*hidden_size;
+                if (real_Memcost < left)
+                    break;
+                else
+                    batchsize = batchsize * 9 / 10;
+            }
+            
+            max_mem_size = batchsize * seq_length;
+            std::cout<<"Support max_seq_length: "<<max_seq_length<<" max_batchsize: "
+                     <<batchsize<<" approximate max_size: "<<max_mem_size<<std::endl;
+            
         }
 
 
@@ -112,6 +130,8 @@ void global_manager::set_scale(size_t input_batchsize, size_t input_seq_length){
             seq_length = input_seq_length;
             if(batchsize * seq_length > max_mem_size){
                 std::cout<<"Error : Batchsize * Seq_lengh is too big too alloc"<<std::endl;
+                std::cout<<" batchsize: "<<batchsize<<" seq_length: "
+                         <<seq_length<<" max_size: "<<max_mem_size<<std::endl;
                 assert(batchsize * seq_length <= max_mem_size);
             }
         }

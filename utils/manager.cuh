@@ -52,8 +52,8 @@ class global_manager {
 
         size_t batchsize;
         size_t seq_length;
-        size_t max_batchsize = 128;
-        size_t max_mem_size = 80 * 1000;
+        size_t max_seq_length = 512;
+        size_t max_mem_size = 200 * 512;
 
         malloc_manage<float> global_malloc_manage_float;
         malloc_manage<int> global_malloc_manage_int;
