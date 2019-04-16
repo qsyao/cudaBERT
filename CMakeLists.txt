@@ -7,7 +7,7 @@ set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cnpy/)
 
 add_subdirectory(cnpy)
 
-find_package(CUDA 9.0 REQUIRED)
+find_package(CUDA REQUIRED)
 
 if(NOT CUDA_FOUND)
     message(FATAL_ERROR "CUDA not found.")
@@ -15,7 +15,10 @@ endif()
 
 add_definitions(-DHAVE_CUDA)
 
-include_directories(${CUDA_INCLUDE_DIRS}/../samples/common/inc/)
+include_directories(${CUDA_TOOLKIT_ROOT_DIR}/samples/common/inc/)
+
+message("warning: helper headers locate at ")
+message(${CUDA_TOOLKIT_ROOT_DIR}/samples/common/inc/)
 
 list(APPEND cudaBERT_EXTERNAL_LIBRARIES ${CUDA_LIBRARIES} ${CUDA_CUBLAS_LIBRARIES})
 include_directories(${CUDA_INCLUDE_DIRS})
