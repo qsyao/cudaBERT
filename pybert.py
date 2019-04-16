@@ -12,11 +12,11 @@ lib_dir = os.path.abspath(os.path.dirname(__file__))
 lib = CDLL(lib_dir + "/libcudaBERT.so", RTLD_GLOBAL)
 
 init_model = lib.init_model
-init_model.argtypes = [c_bool, c_char_p]
+init_model.argtypes = [c_bool, c_int, c_char_p]
 init_model.restype = c_void_p
 
-def load_model(is_large_model, model_dir):    
-    return init_model(is_large_model, bytes(model_dir, encoding='utf-8'))
+def load_model(is_large_model, model_dir, num_gpu=0):    
+    return init_model(is_large_model, num_gpu, bytes(model_dir, encoding='utf-8'))
 
 inference = lib.BERT_Inference
 inference.argtypes = [c_void_p, ndpointer(numpy.int32), ndpointer(numpy.int32),\

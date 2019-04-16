@@ -34,8 +34,8 @@ void get_gpu_result(global_manager * handle,
     cudaStreamSynchronize(handle->get_cal_stream());  
 }
 
-global_manager * init_model(bool large = false, char dir[] = ""){
-    global_manager * handle = new global_manager(large, dir);
+global_manager * init_model(bool large = false, int num_gpu=0, char dir[] = ""){
+    global_manager * handle = new global_manager(large, num_gpu, dir);
     return handle;
 }
 
@@ -73,8 +73,8 @@ void check_inputs(int *a, int n){
     std::cout<<std::endl;
 }
 
-void test(int batchsize, int seq_length, int nIter, bool base){
-    global_manager * handle = init_model(base);
+void test(int batchsize, int seq_length, int nIter, bool base, int num_gpu){
+    global_manager * handle = init_model(base, num_gpu);
 
     int test_word_id_seed[11] = {2040, 2001, 3958, 27227, 1029, 3958, 103,
                                2001, 1037, 13997, 11510};

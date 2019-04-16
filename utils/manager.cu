@@ -1,6 +1,6 @@
 #include "manager.cuh"
 
-global_manager::global_manager (bool BERT_Large, std::string dir) {
+global_manager::global_manager (bool BERT_Large, int num_gpu, std::string dir) {
             if(BERT_Large){
                 dir_npy = "model_npy/large_uncased";
                 hidden_size = 1024;
@@ -20,6 +20,7 @@ global_manager::global_manager (bool BERT_Large, std::string dir) {
             cudaStreamCreate(&copy_stream);
             cudaEventCreate(&copy_event);
             checkError(cublasSetStream(handle, cal_stream), "Set cublas stream Error!\n");
+            checkCudaErrors(cudaSetDevice(num_gpu));
         }
 
 global_manager::~global_manager(){

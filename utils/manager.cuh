@@ -13,7 +13,7 @@
 extern "C"
 class global_manager {
     public:
-        global_manager (bool BERT_Large=false, std::string dir = "");
+        global_manager (bool BERT_Large=false, int num_gpu = 0, std::string dir = "");
 
         ~global_manager();
 
