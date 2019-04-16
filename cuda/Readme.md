@@ -7,7 +7,8 @@ python convert_pytorch_model_to_npys.npy --bert_config_file /path/to/bert_config
 
 ## Compile
 
-nvcc cuda_bert.cu -o libcubert.so -lcublas -I ./reference/ -lcnpy -L ./ -lz --std=c++11 -shared -Xcompiler -fPIC
+cmake .
+make
 
 ## Run test
 python pybert.py (from pytorch_pretrained_bert import BertTokenizer Is Needed for tokenlizer)
