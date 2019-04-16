@@ -1,12 +1,14 @@
-#ifndef BERT_CUDA_ELEMENTWISE
-#define BERT_CUDA_ELEMENTWISE
+#include "elementwise.cuh"
 
-#include <cuda_runtime.h>
-#include <cublas_v2.h>
-#include <assert.h>
-#include "math.h"
+template <typename T> 
+__global__ void MemoryCpyLinear(T* out, T* in, int max, int warpsize) {
+    for(int i = blockIdx.x * blockDim.x + threadIdx.x ; i < max; i += gridDim.x * blockDim.x)
+        out[i] = in[i%warpsize];
+    __syncthreads();
+}
 
-#include "../utils/common.h"
+template
+__global__ void MemoryCpyLinear<float>(float* out, float* in, int max, int warpsize);
 
 template <typename T> 
 __device__ void BertTranspose (T* out, 
@@ -36,6 +38,15 @@ __device__ void BertTranspose (T* out,
   __syncthreads();
 }
 
+template
+__device__ void BertTranspose<float>(float* out, 
+                              float *in, 
+                              size_t batchsize, 
+                              size_t seq_length, 
+                              size_t num_heads, 
+                              long total_length,
+                              bool muti_head);
+
 template <typename T>
 __global__ void FusionTranspose (T* out,
                                 T* in, 
@@ -51,6 +62,17 @@ __global__ void FusionTranspose (T* out,
     __syncthreads();
 }
 
+template
+__global__ void FusionTranspose<float>(float* out,
+                                float* in, 
+                                int num, 
+                                size_t batchsize, 
+                                size_t seq_length,
+                                size_t num_heads,
+                                long total_length,
+                                long total, 
+                                bool muti_head);
+
 template <typename T>
 __global__ void BertDiv (T* tensor, float number, int max_num) {
     for(int i = blockIdx.x * blockDim.x + threadIdx.x ; i < max_num; i += gridDim.x * blockDim.x)
@@ -58,12 +80,18 @@ __global__ void BertDiv (T* tensor, float number, int max_num) {
     __syncthreads();
 }
 
+template
+__global__ void BertDiv<float>(float* tensor, float number, int max_num);
+
 template <typename T>
 __global__ void BertAdd (T* tensor, T* add, int max_num) {
     for(int i = blockIdx.x * blockDim.x + threadIdx.x ; i < max_num; i += gridDim.x * blockDim.x)
         tensor[i] += add[i];
     __syncthreads();
 }
+
+template
+__global__ void BertAdd<float>(float* tensor, float* add, int max_num);
 
 template <typename T>
 __global__ void Attention_Mask_Add_Merge_div_only_Add (
@@ -80,6 +108,15 @@ __global__ void Attention_Mask_Add_Merge_div_only_Add (
     __syncthreads();
 }
 
+template
+__global__ void Attention_Mask_Add_Merge_div_only_Add<float>(
+                                float* tensor, 
+                                int* mask, 
+                                float number, 
+                                int max_num, 
+                                int batchsize, 
+                                int seq_length);
+
 template <typename T>
 __global__ void Attention_Mask_Add_Merge_div_only_div (
                                   T* tensor, 
@@ -94,12 +131,24 @@ __global__ void Attention_Mask_Add_Merge_div_only_div (
     __syncthreads();
 }
 
+template
+__global__ void Attention_Mask_Add_Merge_div_only_div<float>(
+                                  float* tensor, 
+                                  int* mask, 
+                                  float number, 
+                                  int max_num, 
+                                  int batchsize, 
+                                  int seq_length);
+
 template <typename T>
 __global__ void BertGelu (T* tensor,  int max_num) {
     for(int i = blockIdx.x * blockDim.x + threadIdx.x ; i < max_num; i += gridDim.x * blockDim.x)
         tensor[i] = tensor[i] * 0.5f * (1.0f + erff(tensor[i] / sqrtf(2.0)));
     __syncthreads();
 }
+
+template
+__global__ void BertGelu<float>(float* tensor,  int max_num);
 
 template <typename T>
 __global__ void BertTanh (T* tensor,  int max_num) {
@@ -108,4 +157,5 @@ __global__ void BertTanh (T* tensor,  int max_num) {
     __syncthreads();
 }
 
-#endif
+template
+__global__ void BertTanh<float>(float* tensor,  int max_num);

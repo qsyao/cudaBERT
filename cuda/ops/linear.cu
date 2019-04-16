@@ -1,20 +1,5 @@
-#ifndef LINEAR_CUDA_BERT
-#define LINEAR_CUDA_BERT
-
-// CUDA and CUBLAS functions
-#include <helper_functions.h>
-#include <helper_cuda.h>
-#include <cuda_runtime.h>
-
-#include "matmul.cu"
-#include "../utils/manager.h"
-
-template <typename T>
-__global__ void MemoryCpyLinear(T* out, T* in, int max, int warpsize) {
-    for(int i = blockIdx.x * blockDim.x + threadIdx.x ; i < max; i += gridDim.x * blockDim.x)
-        out[i] = in[i%warpsize];
-    __syncthreads();
-}
+#include "linear.cuh"
+#include "elementwise.cuh"
 
 template <typename T>
 __global__ void BatchMemoryCpyLinear (
@@ -57,8 +42,8 @@ void Linear (global_manager *handler,
         size_t n, 
         size_t k, 
         size_t m,
-        bool is_prepare = false,
-        bool debug=false) {
+        bool is_prepare,
+        bool debug) {
 
     if (debug) {
         debug_tensor_gpu<T>(std::string("weights"), weights, 2, 2, 10);
@@ -106,6 +91,18 @@ void Linear (global_manager *handler,
         debug_tensor_gpu<T>(std::string("Linear out"), output, 10, m, min((int)n,10));
 }
 
+template
+void Linear<float>(global_manager *handler, 
+        float* output, 
+        float* input, 
+        float* weights, 
+        float* beta,
+        size_t n, 
+        size_t k, 
+        size_t m,
+        bool is_prepare,
+        bool debug);
+
 template <typename T>
 void Batch_Linear (global_manager *handler, 
                    T* output, 
@@ -119,8 +116,8 @@ void Batch_Linear (global_manager *handler,
                    size_t n, 
                    size_t k, 
                    size_t m,
-                   bool is_prepare = false,
-                   bool debug = false) {
+                   bool is_prepare,
+                   bool debug) {
     T* weights = handler->global_malloc_manage_float.get_new_head_point(3 * k * m);
     
     //dim3 threads(512, 1, 1);
@@ -192,4 +189,18 @@ void Batch_Linear (global_manager *handler,
         //debug_tensor_gpu<T>(std::string("Linear out"), output, 11, 768, 11*3);
 }
 
-#endif
+template
+void Batch_Linear<float>(global_manager *handler, 
+                   float* output, 
+                   float* input, 
+                   float* weights_0, 
+                   float* beta_0,
+                   float* weights_1, 
+                   float* beta_1, 
+                   float* weights_2, 
+                   float* beta_2, 
+                   size_t n, 
+                   size_t k, 
+                   size_t m,
+                   bool is_prepare,
+                   bool debug);

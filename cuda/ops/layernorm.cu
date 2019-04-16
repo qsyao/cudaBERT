@@ -1,8 +1,4 @@
-#ifndef LAYERNORM_BERT_CUDA
-#define LAYERNORM_BERT_CUDA
-
-#include "../utils/common.h"
-#include "../utils/manager.h"
+#include "layernorm.cuh"
 
 template<typename U> __device__ U rsqrt(U v) {
   return U(1) / sqrt(v);
@@ -142,7 +138,7 @@ void cuApplyLayerNorm(
   const U epsilon,
   const T* __restrict__ gamma,
   const T* __restrict__ beta,
-  const T* merge_add = nullptr
+  const T* merge_add
   ) 
 {
   // Assumptions:
@@ -191,7 +187,7 @@ void HostApplyLayerNorm(
     double epsilon,
     const T* gamma,
     const T* beta,
-    T* merge_add = nullptr
+    T* merge_add
     )
 {
     // auto stream TODO(): Muti-Stream 
@@ -209,4 +205,15 @@ void HostApplyLayerNorm(
           gamma,beta, merge_add);
 }
 
-#endif
+template
+void HostApplyLayerNorm<float, float>(
+    global_manager *handle,
+    float* output,
+    float* input,
+    size_t n1,
+    size_t n2,
+    double epsilon,
+    const float* gamma,
+    const float* beta,
+    float* merge_add
+    );

@@ -1,17 +1,10 @@
-#include "../ops/layernorm.cu"
-#include "../ops/linear.cu"
-#include "../ops/embedding.cu"
-#include "../ops/matmul.cu"
-#include "../ops/softmax.cu"
-#include "../utils/common.h"
-#include "../ops/elementwise.cu"
-#include "../utils/manager.h"
+#include "inference.cuh"
 
 template <typename T> 
 void BERT_Attention (global_manager *handle, 
                     T* &tensor,
                     size_t num_layer, 
-                    int* attention_mask = nullptr) {
+                    int* attention_mask) {
     dict_weights weights = handle->weights;
     size_t batchsize = handle->batchsize;
     size_t seq_length = handle->seq_length;                    
@@ -220,7 +213,7 @@ template <typename T>
 void BERT_Layer (global_manager *handle, 
                 T* &tensor,
                 size_t num_layer,
-                int* attention_mask = nullptr) {
+                int* attention_mask) {
     handle->global_malloc_manage_float.record_layer_start();
 
     BERT_Attention<T>(handle, tensor, num_layer, attention_mask);
@@ -288,7 +281,7 @@ void BERT_Inference (global_manager *handle,
                     int* token_types, 
                     size_t batchsize, 
                     size_t seq_length, 
-                    int* attention_mask = nullptr) {
+                    int* attention_mask) {
     handle->set_scale(batchsize, seq_length);
 
     tensor = handle->global_malloc_manage_float.get_new_head_point(
@@ -310,13 +303,12 @@ void BERT_Inference (global_manager *handle,
     //dump_tensor<T>(std::string("pooler_output"), tensor, batchsize, handle->hidden_size);
 }
 
-extern "C"
 Retval BERT_Inference (global_manager * handle,
                     int* words, 
                     int* token_types, 
                     int batchsize, 
                     int seq_length, 
-                    int* attention_mask = nullptr) {
+                    int* attention_mask) {
     Retval ret;
 
     handle->set_scale(batchsize, seq_length);
@@ -374,3 +366,8 @@ T* classify_inference(global_manager * handle,
 
     return output;
 }
+
+template
+float* classify_inference<float>(global_manager * handle, 
+            float* pooled_output, 
+            size_t num_classes);

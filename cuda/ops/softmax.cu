@@ -1,7 +1,4 @@
-#ifndef SOFTMAX2_CUDA_BERT
-#define SOFTMAX2_CUDA_BERT
-
-#include "../utils/common.h"
+#include "softmax.cuh"
 
 template<typename T> __device__ __forceinline__
 void cuWelfordMax(
@@ -126,5 +123,10 @@ void HostApplySoftmax(
             );
 }
 
-
-#endif
+template 
+void HostApplySoftmax<float>(
+    global_manager *handle,
+    float* tensor,
+    size_t n1,
+    size_t n2
+    );

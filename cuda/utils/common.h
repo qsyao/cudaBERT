@@ -16,15 +16,7 @@
 #include <cuda_runtime.h>
 #include <cuda_fp16.h>
 
-template <typename T>
-__device__ __forceinline__ T WARP_SHFL(T value, int srcLane, int width = warpSize, unsigned int mask = 0xffffffff)
-{
-#if CUDA_VERSION >= 9000
-    return __shfl_sync(mask, value, srcLane, width);
-#else
-    return __shfl(value, srcLane, width);
-#endif
-}
+#include "../cnpy/cnpy.h"
 
 namespace {
 // This is the un-specialized struct.  Note that we prevent instantiation of this
@@ -35,8 +27,6 @@ struct SharedMemory
     // Ensure that we won't compile any un-specialized types
     __device__ T *getPointer()
     {
-        extern __device__ void error(void);
-        error();
         return NULL;
     }
 };
@@ -154,41 +144,10 @@ class malloc_manage {
 };
 
 template <typename T>
-void debug_tensor(std::string tag, T* tensor, int max_x , int length_x, int max_y = 1){
-    /*
-       print 1 to max_y lines from tensor:
-       length_x: len(rows)
-       max_x : len(rows) to print
-    */
-    std::cout<<" DEBUG TENSOR: ****  "<<tag<<"  *****  "<<std::endl;
-    for(int i = 0; i < max_y; i++){
-        for(int j = 0; j < max_x; j++)
-            std::cout<<" "<<tensor[i*length_x + j]<<" ";
-        std::cout<<std::endl;
-    }
-    std::cout<<" **************  DEBUG ENDING"<<std::endl;
-}
+void debug_tensor(std::string tag, T* tensor, int max_x , int length_x, int max_y = 1);
 
 template <typename T>
-void debug_tensor_gpu(std::string tag, void* gpu_tensor, int max_x, int length_x, int max_y = 1){
-    int length = length_x * max_y;
-    T* cpu_mem;
-    cpu_mem = (T *)malloc(sizeof(T) * length);
-    T* tensor = static_cast<T *>(gpu_tensor);
-    std::cout<<" \nDEBUG GPU TENSOR: ****  "<<tag<<"  ******  "<<std::endl;
-    std::cout<<" Pointer:  --- "<<gpu_tensor<<" ------ "<<std::endl;
-    checkCudaErrors(cudaMemcpyAsync(cpu_mem, tensor, sizeof(T)*length, cudaMemcpyDeviceToHost));
-    for(int i = 0; i < max_y; i++){
-        for(int j = 0; j < max_x; j++)
-            std::cout<<" "<<cpu_mem[i*length_x + j]<<" ";
-        std::cout<<" ... "<<cpu_mem[i*length_x + length_x -3]<<"  "
-                          <<cpu_mem[i*length_x + length_x -2]<<"  "
-                          <<cpu_mem[i*length_x + length_x -1]<<"  ";
-        std::cout<<std::endl;
-    }
-    free(cpu_mem);
-    std::cout<<" **************  DEBUG ENDING\n"<<std::endl;
-}
+void debug_tensor_gpu(std::string tag, void* gpu_tensor, int max_x, int length_x, int max_y = 1);
 
 template <typename T>
 void dump_tensor(std::string file_name, 
@@ -197,23 +156,7 @@ void dump_tensor(std::string file_name,
                 size_t dim2=0,
                 size_t dim3=0,
                 size_t dim4=0,
-                size_t dim5=0) {
-    std::vector<size_t> shape;
-    if(dim1 != 0) shape.push_back(dim1);
-    if(dim2 != 0) shape.push_back(dim2);
-    if(dim3 != 0) shape.push_back(dim3);
-    if(dim4 != 0) shape.push_back(dim4);
-    if(dim5 != 0) shape.push_back(dim5);
-    long length = 1;
-    for(auto dim : shape) length *= dim;
-    T* cpu_mem;
-    cpu_mem = (T *)malloc(sizeof(T) * length);
-    T* tensor = static_cast<T *>(gpu_tensor);
-    checkCudaErrors(cudaMemcpyAsync(cpu_mem, tensor, sizeof(T)*length, cudaMemcpyDeviceToHost));
-    cnpy::npy_save("debug/cubert/" + file_name + ".npy", cpu_mem, shape);
-    free(cpu_mem);
-    return ;
-}
+                size_t dim5=0);
 
 
 extern "C"

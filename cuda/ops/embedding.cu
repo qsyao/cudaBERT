@@ -1,14 +1,4 @@
-#ifndef CUDA_BERT_EMBEDDING
-#define CUDA_BERT_EMBEDDING
-
-#include "cuda_runtime.h"
-// CUDA and CUBLAS functions
-#include <helper_functions.h>
-#include <helper_cuda.h>
-
-#include "../utils/common.h"
-#include "layernorm.cu"
-#include "../utils/load_model.h"
+#include "embedding.cuh"
 
 template <typename T> __global__
 void DeviceApplyEmbeddings (const int* words, 
@@ -34,7 +24,7 @@ void HostApplyEmbeddings (global_manager *handle,
                          T* &output,
                          int *words, 
                          int *token_type, 
-                         int* &attention_mask = nullptr) {
+                         int* &attention_mask) {
     // MemcpyHostToDevice for inputs
 
     std::vector<tagged_tensor *> tts = handle->tts;
@@ -109,4 +99,9 @@ void HostApplyEmbeddings (global_manager *handle,
     //debug_tensor_gpu<float>(std::string("look_up_embedding on GPU"), output, 10, 768, 11*batchsize);
 }
 
-#endif
+template
+void HostApplyEmbeddings<float>(global_manager *handle, 
+                         float* &output,
+                         int *words, 
+                         int *token_type, 
+                         int* &attention_mask);

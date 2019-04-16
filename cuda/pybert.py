@@ -9,7 +9,8 @@ class Retval(Structure):
 
 import os
 lib_dir = os.path.abspath(os.path.dirname(__file__))
-lib = CDLL(lib_dir + "/libcubert.so", RTLD_GLOBAL)
+import ipdb; ipdb.set_trace()
+lib = CDLL(lib_dir + "/libcudaBERT.so", RTLD_GLOBAL)
 
 init_model = lib.init_model
 init_model.argtypes = [c_bool, c_char_p]

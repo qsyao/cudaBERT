@@ -2,9 +2,11 @@
 #include <time.h>
 
 #include "utils/common.h"
-#include "utils/inference.cu"
+#include "utils/inference.cuh"
 #include "utils/load_model.h"
-#include "utils/manager.h"
+#include "utils/manager.cuh"
+
+#include "cuda_bert.cuh"
 
 int* filling_inputs(int* tensor, int seq_length, int start_length, int batchsize){
     int* target = (int*)malloc(sizeof(int)*seq_length*batchsize);
@@ -19,7 +21,6 @@ int* filling_inputs(int* tensor, int seq_length, int start_length, int batchsize
 }
 
 extern "C"{
-
 void get_gpu_result(global_manager * handle,
         float* gpu_tensor, 
         float* output, 
@@ -32,13 +33,6 @@ void get_gpu_result(global_manager * handle,
     
     cudaStreamSynchronize(handle->get_cal_stream());  
 }
-
-Retval BERT_Inference (global_manager * handle,
-                    int* words, 
-                    int* token_types, 
-                    int batchsize, 
-                    int seq_length, 
-                    int* attention_mask);
 
 global_manager * init_model(bool large = false, char dir[] = ""){
     global_manager * handle = new global_manager(large, dir);
@@ -131,10 +125,3 @@ void test(int batchsize, int seq_length, int nIter, bool base){
     printf("Time= %.2f(ms)\n", dSeconds);
 }
 } // extern "C"
-
-//int main(){
-//    test();
-//    return 0;
-//}
-
-//nvcc cuda_bert.cu -o test -lcublas -I /usr/local/cuda-9.0/samples/common/inc/ -lcnpy -L ./ --std=c++11
