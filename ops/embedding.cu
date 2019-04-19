@@ -58,7 +58,7 @@ void HostApplyEmbeddings (global_manager *handle,
     else{
         checkCudaErrors(cudaMemcpyAsync(word_gpu, host_input_package, 3*total_length*sizeof(int), cudaMemcpyHostToDevice));
     }
-    cudaFree(host_input_package);
+    cudaFreeHost(host_input_package);
     //debug_tensor_gpu<int>(std::string("memcpy: "), word_gpu, 10, seq_length, batchsize*3);
     
     // HostApplyEmbeddings
