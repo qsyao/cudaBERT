@@ -11,6 +11,7 @@ global_manager::global_manager (bool BERT_Large, int num_gpu, std::string dir) {
             }
             if (dir != "") 
                 dir_npy = dir;
+            checkCudaErrors(cudaSetDevice(num_gpu));
             load_from_dir_to_GPU(dir_npy, tts);
             weights = load_dict_weights(tts, num_hidden_layers);
             checkError(cublasCreate(&handle), "cublasCreate() error!\n");
@@ -20,7 +21,6 @@ global_manager::global_manager (bool BERT_Large, int num_gpu, std::string dir) {
             cudaStreamCreate(&copy_stream);
             cudaEventCreate(&copy_event);
             checkError(cublasSetStream(handle, cal_stream), "Set cublas stream Error!\n");
-            checkCudaErrors(cudaSetDevice(num_gpu));
         }
 
 global_manager::~global_manager(){
