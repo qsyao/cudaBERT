@@ -28,10 +28,10 @@ set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS};-O3;-use_fast_math;-Xptxas -O3;-Xcompiler
 set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS};-ftz=true)
 set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS};-std=c++11)
 set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS};-Xcompiler -fPIC)
-set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS};-lcublas)
 set(CUDA_SEPARABLE_COMPILATION ON)
 
 set(SOURCE_FILES
+        utils/bert.cu
         utils/common.cc
         utils/load_model.cc
         utils/manager.cu
@@ -41,7 +41,7 @@ set(SOURCE_FILES
         ops/linear.cu
         ops/matmul.cu
         ops/softmax.cu
-        utils/inference.cu
+        ops/batch_matmul.cu
         cuda_bert.cu)
 
 cuda_add_library(cudaBERT SHARED ${SOURCE_FILES})
