@@ -2,9 +2,7 @@
 #include <time.h>
 
 #include "utils/common.h"
-#include "utils/inference.cuh"
-#include "utils/load_model.h"
-#include "utils/manager.cuh"
+#include "utils/bert.cuh"
 
 #include "cuda_bert.cuh"
 
@@ -21,25 +19,13 @@ int* filling_inputs(int* tensor, int seq_length, int start_length, int batchsize
 }
 
 extern "C"{
-void get_gpu_result(global_manager * handle,
-        float* gpu_tensor, 
-        float* output, 
-        int total_size) {
-    checkCudaErrors(cudaMemcpyAsync(output, 
-                   gpu_tensor, 
-                   sizeof(float)*total_size, 
-                   cudaMemcpyDeviceToHost,
-                   handle->get_cal_stream()));
-    
-    cudaStreamSynchronize(handle->get_cal_stream());  
+
+bert* init_model(bool large = false, int num_gpu=0, char dir[] = ""){
+    bert* ret = new bert(large, num_gpu, dir);
+    return ret;
 }
 
-global_manager * init_model(bool large = false, int num_gpu=0, char dir[] = ""){
-    global_manager * handle = new global_manager(large, num_gpu, dir);
-    return handle;
-}
-
-void cuda_classify (global_manager * handle,
+void cuda_classify (bert* model,
                     float* output,
                     int* words, 
                     int* token_types, 
@@ -47,34 +33,18 @@ void cuda_classify (global_manager * handle,
                     int seq_length,
                     int num_classes,
                     int* attention_mask){
-    Retval ret = BERT_Inference(
-                            handle,
-                            words,
-                            token_types,
-                            batchsize,
-                            seq_length,
-                            attention_mask);
+    Retval ret = model->BERT_Inference( words,
+                                        token_types,
+                                        batchsize,
+                                        seq_length,
+                                        attention_mask);
     float * output_gpu;
-    output_gpu = classify_inference(handle, ret.pooled_output, num_classes);
-    get_gpu_result(handle, output_gpu, output, batchsize*num_classes);
-}
-
-void check_model(global_manager *handle){
-    std::cout<<handle->dir_npy<<std::endl;
-    std::cout<<handle->hidden_size<<std::endl;
-    std::cout<<handle->num_hidden_layers<<std::endl;
-    std::cout<<handle->intermediate_size<<std::endl;
-}
-
-void check_inputs(int *a, int n){
-    for (int i=0; i<n; i++) {
-        std::cout<<a[i]<<" ";
-    }
-    std::cout<<std::endl;
+    output_gpu = model->classify_inference(ret.pooled_output, num_classes);
+    model->get_gpu_result(output_gpu, output, batchsize*num_classes);
 }
 
 void test(int batchsize, int seq_length, int nIter, bool base, int num_gpu){
-    global_manager * handle = init_model(base, num_gpu);
+    bert* model = init_model(base, num_gpu);
 
     int test_word_id_seed[11] = {2040, 2001, 3958, 27227, 1029, 3958, 103,
                                2001, 1037, 13997, 11510};
@@ -95,31 +65,31 @@ void test(int batchsize, int seq_length, int nIter, bool base, int num_gpu){
 
     // Warm Up
     for(int i = 0; i < 10; i++){
-        BERT_Inference(handle, 
-                       test_word_id, 
-                       test_token_type_id, 
-                       batchsize, 
-                       seq_length, 
-                       test_attention_mask);
+        model->BERT_Inference(
+                            test_word_id, 
+                            test_token_type_id, 
+                            batchsize, 
+                            seq_length, 
+                            test_attention_mask);
     }
 
     double total_time = 0;
     for(int i = 0; i < nIter; i++){
         float it_time;
         cudaEventRecord(start);
-        BERT_Inference(handle, 
-                       test_word_id, 
-                       test_token_type_id, 
-                       batchsize, 
-                       seq_length, 
-                       test_attention_mask);
+        model->BERT_Inference(
+                            test_word_id, 
+                            test_token_type_id, 
+                            batchsize, 
+                            seq_length, 
+                            test_attention_mask);
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
         cudaEventElapsedTime(&it_time, start, stop);
         total_time += it_time;
     }    
 
-    delete handle;
+    delete model;
 
     double dSeconds = total_time/(double)nIter;
     printf("Time= %.2f(ms)\n", dSeconds);

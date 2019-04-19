@@ -3,23 +3,29 @@
 
 #include<string>
 #include<vector>
-#include "cuda_runtime.h"
-#include <cublas_v2.h>
 
-#include "common.h"
+#include <cuda_runtime.h>
+#include <cublas_v2.h>
+// CUDA and CUBLAS functions
+#include <helper_functions.h>
+#include <helper_cuda.h>
+#include <cuda.h>
+#include <cuda_runtime.h>
+#include <cuda_fp16.h>
+
 #include "load_model.h"
-#include "../ops/elementwise.cuh"
+#include "common.h"
 
 extern "C"
-class global_manager {
+class global_handle {
     public:
-        global_manager (bool BERT_Large=false, int num_gpu = 0, std::string dir = "");
+        global_handle (bool BERT_Large=false, std::string dir = "");
 
-        ~global_manager();
+        ~global_handle();
 
         void init_cudamemory(int batchsize, int seq_length);
 
-        void prepare_linear(global_manager *handle,
+        void prepare_linear(global_handle *handle,
                     std::vector<tagged_tensor *>& tts, 
                     dict_weights &weights);
 
@@ -30,16 +36,6 @@ class global_manager {
             global_malloc_manage_int.set_head_zero();
         }
 
-        cudaStream_t get_cal_stream(){
-            return cal_stream;
-        }
-
-        cudaStream_t get_copy_stream(){
-            return copy_stream;
-        }
-
-        std::vector<tagged_tensor *> tts;
-        dict_weights weights;
         cublasHandle_t handle;
 
         cudaEvent_t copy_event;
@@ -58,7 +54,7 @@ class global_manager {
         malloc_manage<float> global_malloc_manage_float;
         malloc_manage<int> global_malloc_manage_int;
 
-    private:
+        std::vector<tagged_tensor *> tts;
 
         cudaStream_t cal_stream;
         cudaStream_t copy_stream;

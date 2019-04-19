@@ -1,21 +1,45 @@
 #ifndef LAYERNORM_BERT_CUDA
 #define LAYERNORM_BERT_CUDA
 
-#include "shfl.cuh"
+#include "op_kernel.cuh"
 #include "../utils/common.h"
-#include "../utils/manager.cuh"
 
-template<typename T, typename U> 
-void HostApplyLayerNorm(
-    global_manager *handle,
-    T* output,
-    T* input,
-    size_t n1,
-    size_t n2,
-    double epsilon,
-    const T* gamma,
-    const T* beta,
-    T* merge_add = nullptr
-    );
-    
+class op_LayerNorm : public op_kernel{
+  public:
+    op_LayerNorm(std::string key_gamma, 
+                 std::string key_beta,
+                 global_handle* handle)
+                 : op_kernel(handle) {
+        std::vector<std::string> keys = {key_gamma};
+        tagged_tensor* tt = look_up_tts(handle->tts, keys);
+        gamma = tt->gpu_mem;
+        keys = {key_beta};
+        tt = look_up_tts(handle->tts, keys);
+        beta = tt->gpu_mem;
+    }
+
+    ~op_LayerNorm();
+
+    template<typename T> 
+    void forward(
+    /* 
+        Fuse op_Add in LayerNorm For BERT Only
+    */
+                T* output,
+                T* input,
+                size_t n1,
+                size_t n2,
+                T* merge_add = nullptr); 
+
+    void backward();
+
+    void update_weights();
+
+  private:
+    size_t warpsize;
+    double epsilon = 1e-12;
+    float* gamma;
+    float* beta;
+};
+
 #endif

@@ -369,5 +369,5 @@ T* classify_inference(global_manager * handle,
 
 template
 float* classify_inference<float>(global_manager * handle, 
-            float* pooled_output, 
-            size_t num_classes);
+                                float* pooled_output, 
+                                size_t num_classes);

@@ -1,5 +1,9 @@
 #include "softmax.cuh"
 
+#include "shfl.cuh"
+#include "../utils/common.h"
+#include "../utils/manager.cuh"
+
 template<typename T> __device__ __forceinline__
 void cuWelfordMax(
   const T* tensor,
@@ -108,24 +112,22 @@ void cuApplySoftmax(
 }
 
 template<typename T> 
-void HostApplySoftmax(
-    global_manager *handle,
-    T* tensor,
-    size_t n1,
-    size_t n2
-    )
+void op_SoftMax::forward(
+                        T* tensor,
+                        size_t n1,
+                        size_t n2
+                        )
 {
     const dim3 threads(32,1,1);
     const dim3 blocks(1,min((long)65535,n1),1);
-    cuApplySoftmax<<<blocks, threads, 0, handle->get_cal_stream()>>>(
+    cuApplySoftmax<<<blocks, threads, 0, handle->cal_stream>>>(
 		    tensor,
 		    n1,n2
             );
 }
 
 template 
-void HostApplySoftmax<float>(
-    global_manager *handle,
+void op_SoftMax::forward<float>(
     float* tensor,
     size_t n1,
     size_t n2

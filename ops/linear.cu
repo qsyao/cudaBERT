@@ -1,73 +1,41 @@
 #include "linear.cuh"
 #include "elementwise.cuh"
-
-template <typename T>
-__global__ void BatchMemoryCpyLinear (
-        T* weights_out, 
-        T* beta_out, 
-        T* weights_0, 
-        T* beta_0,
-        T* weights_1, 
-        T* beta_1, 
-        T* weights_2, 
-        T* beta_2, 
-        size_t n, 
-        size_t k, 
-        size_t m) {
-    for (int i = blockIdx.x * blockDim.x + threadIdx.x ; i < 3 * n * m; i += gridDim.x * blockDim.x) {
-        size_t num_beta = i / (n * m);
-        switch(num_beta){
-            case 0 : {beta_out[i] = beta_0[i % m]; break;}
-            case 1 : {beta_out[i] = beta_1[i % m]; break;}
-            case 2 : {beta_out[i] = beta_2[i % m]; break;}
-        }
-    }
-    for (int i = blockIdx.x * blockDim.x + threadIdx.x ; i < 3 * k * m; i += gridDim.x * blockDim.x) {
-        size_t num_weights = i / (k * m);
-        switch (num_weights) {
-            case 0 : {weights_out[i] = weights_0[i % (k * m)]; break;}
-            case 1 : {weights_out[i] = weights_1[i % (k * m)]; break;}
-            case 2 : {weights_out[i] = weights_2[i % (k * m)]; break;}
-        }
-    }
-    __syncthreads();
-}
+#include "matmul.cuh"
 
 template <typename T> 
-void Linear (global_manager *handler, 
-        T* output, 
-        T* input, 
-        T* weights, 
-        T* beta,
-        size_t n, 
-        size_t k, 
-        size_t m,
-        bool is_prepare,
-        bool debug) {
+void op_Linear::forward (
+                        T* &output, 
+                        T* input, 
+                        size_t n, 
+                        size_t k, 
+                        size_t m,
+                        bool is_prepare,
+                        bool debug) {
+    output = handle->global_malloc_manage_float.get_new_head_point(n * m);
 
     if (debug) {
-        debug_tensor_gpu<T>(std::string("weights"), weights, 2, 2, 10);
-        debug_tensor_gpu<T>(std::string("bias"), beta, 2, 2, 1);
-        debug_tensor_gpu<T>(std::string("input_Linear"), input, 10, k, min((int)n,10));
+        debug_tensor_gpu<T>(std::string("weights"), kernel, 2, 2, 10);
+        debug_tensor_gpu<T>(std::string("bias"), bias, 2, 2, 1);
+        debug_tensor_gpu<T>(std::string("input_Linear"), bias, 10, k, min((int)n,10));
     }
 
     if(!is_prepare){
         dim3 threads(1024, 1, 1);
         dim3 blocks(min((long)65535, n*m/1024) + 1, 1, 1);
-        MemoryCpyLinear<T><<<blocks, threads, 0, handler->get_copy_stream()>>>(
-                                                 output, beta, n*m, m);
+        MemoryCpyLinear<T><<<blocks, threads, 0, handle->copy_stream>>>(
+                                                 output, bias, n*m, m);
     }
     else{
         checkCudaErrors(cudaMemcpyAsync(output,
-                                    beta, 
+                                    bias, 
                                     n*m*sizeof(float), 
                                     cudaMemcpyDeviceToDevice,
-                                    handler->get_copy_stream()));
+                                    handle->copy_stream));
     }
     
-    cudaEventRecord(handler->copy_event, handler->get_copy_stream());
+    cudaEventRecord(handle->copy_event, handle->copy_stream);
 
-    cudaStreamWaitEvent(handler->get_cal_stream(), handler->copy_event, 0);
+    cudaStreamWaitEvent(handle->cal_stream, handle->copy_event, 0);
 
     if(debug)
         debug_tensor_gpu<T>(std::string("After Linear copy"), output,10, m, min((int)n,10));
@@ -76,10 +44,10 @@ void Linear (global_manager *handler,
     std::vector<size_t> b_shape={k, m};
     std::vector<size_t> c_shape={n, m};
 
-    matmul(handler->handle, 
+    matmul(handle->handle, 
            input, 
            a_shape, 
-           weights, 
+           kernel, 
            b_shape, 
            output, 
            c_shape,
@@ -91,34 +59,26 @@ void Linear (global_manager *handler,
         debug_tensor_gpu<T>(std::string("Linear out"), output, 10, m, min((int)n,10));
 }
 
-template
-void Linear<float>(global_manager *handler, 
-        float* output, 
-        float* input, 
-        float* weights, 
-        float* beta,
-        size_t n, 
-        size_t k, 
-        size_t m,
-        bool is_prepare,
-        bool debug);
+template 
+void op_Linear::forward<float>(
+                            float* &output, 
+                            float* input, 
+                            size_t n, 
+                            size_t k, 
+                            size_t m,
+                            bool is_prepare,
+                            bool debug);
 
 template <typename T>
-void Batch_Linear (global_manager *handler, 
-                   T* output, 
-                   T* input, 
-                   T* weights_0, 
-                   T* beta_0,
-                   T* weights_1, 
-                   T* beta_1, 
-                   T* weights_2, 
-                   T* beta_2, 
-                   size_t n, 
-                   size_t k, 
-                   size_t m,
-                   bool is_prepare,
-                   bool debug) {
-    T* weights = handler->global_malloc_manage_float.get_new_head_point(3 * k * m);
+void op_BatchedLinear::forward(
+                            T* &output, 
+                            T* input, 
+                            size_t n, 
+                            size_t k, 
+                            size_t m,
+                            bool is_prepare,
+                            bool debug) {
+    output = handle->global_malloc_manage_float.get_new_head_point(3 * n * m);
     
     //dim3 threads(512, 1, 1);
     //dim3 blocks(max(3*n*m, 3*k*m)/512 + 1, 1, 1);
@@ -127,56 +87,56 @@ void Batch_Linear (global_manager *handler,
     if(!is_prepare){
         dim3 threads(1024, 1, 1);
         dim3 blocks(min((long)65535, n*m/1024) + 1, 1, 1);
-        MemoryCpyLinear<T><<<blocks, threads, 0, handler->get_copy_stream()>>>(
-                                                      output, beta_0, n*m, m);
-        MemoryCpyLinear<T><<<blocks, threads, 0, handler->get_copy_stream()>>>(
-                                                 output + n*m, beta_1, n*m, m);
-        MemoryCpyLinear<T><<<blocks, threads, 0, handler->get_copy_stream()>>>(
-                                              output + 2*n*m, beta_2, n*m, m);
+        MemoryCpyLinear<T><<<blocks, threads, 0, handle->copy_stream>>>(
+                                                      output, query_bias, n*m, m);
+        MemoryCpyLinear<T><<<blocks, threads, 0, handle->copy_stream>>>(
+                                                 output + n*m, key_bias, n*m, m);
+        MemoryCpyLinear<T><<<blocks, threads, 0, handle->copy_stream>>>(
+                                              output + 2*n*m, val_bias, n*m, m);
     }
     else{
         checkCudaErrors(cudaMemcpyAsync(output,
-                                    beta_0, 
+                                    query_bias, 
                                     n*m*sizeof(float), 
                                     cudaMemcpyDeviceToDevice,
-                                    handler->get_copy_stream()));
+                                    handle->copy_stream));
         checkCudaErrors(cudaMemcpyAsync(output + n*m, 
-                                    beta_1, 
+                                    key_bias, 
                                     n*m*sizeof(float), 
                                     cudaMemcpyDeviceToDevice,
-                                    handler->get_copy_stream()));
+                                    handle->copy_stream));
         checkCudaErrors(cudaMemcpyAsync(output + 2*n*m, 
-                                    beta_2, 
+                                    val_bias, 
                                     n*m*sizeof(float), 
                                     cudaMemcpyDeviceToDevice,
-                                    handler->get_copy_stream()));
+                                    handle->copy_stream));
     }
 
-    dim3 threads2(512, 1, 1);
-    dim3 blocks2(k*m/512 + 1, 1, 1);
+    //dim3 threads2(512, 1, 1);
+    //dim3 blocks2(k*m/512 + 1, 1, 1);
     //MemoryCpyLinear<T><<<blocks2, threads2>>>(weights, weights_0, k*m, k*m);
     //MemoryCpyLinear<T><<<blocks2, threads2>>>(weights + k*m, weights_1, k*m, k*m);
     //MemoryCpyLinear<T><<<blocks2, threads2>>>(weights + 2*k*m, weights_2, k*m, k*m);
-    cudaEventRecord(handler->copy_event, handler->get_copy_stream());
-    cudaStreamWaitEvent(handler->get_cal_stream(), handler->copy_event, 0);
+    cudaEventRecord(handle->copy_event, handle->copy_stream);
+    cudaStreamWaitEvent(handle->cal_stream, handle->copy_event, 0);
 
     if(debug){
         //debug_tensor_gpu<T>(std::string("inputs"), input, 10, 768, 11);
         //debug_tensor_gpu<T>(std::string("key"), weights_0, 10, 768, 11);
         //debug_tensor_gpu<T>(std::string("query"), weights_0+k*m, 10, 768, 11);
         //debug_tensor_gpu<T>(std::string("value"), weights_0+2*k*m, 10, 768, 11);
-        debug_tensor_gpu<T>(std::string("before matmul"), output, 5, handler->hidden_size*handler->seq_length, handler->batchsize*3);
-        //debug_tensor_gpu<T>(std::string("bias"), beta_0, 10, handler->hidden_size, 11);
+        debug_tensor_gpu<T>(std::string("before matmul"), output, 5, handle->hidden_size*handle->seq_length, handle->batchsize*3);
+        //debug_tensor_gpu<T>(std::string("bias"), beta_0, 10, handle->hidden_size, 11);
     }
     
     std::vector<size_t> a_shape={3, n, k};
     std::vector<size_t> b_shape={3, k, m};
     std::vector<size_t> c_shape={3, n, m};
 
-    matmul(handler->handle, 
+    matmul(handle->handle, 
            input, 
            a_shape, 
-           weights_0, 
+           batch_attentin_weights, 
            b_shape, 
            output, 
            c_shape,
@@ -190,17 +150,11 @@ void Batch_Linear (global_manager *handler,
 }
 
 template
-void Batch_Linear<float>(global_manager *handler, 
-                   float* output, 
-                   float* input, 
-                   float* weights_0, 
-                   float* beta_0,
-                   float* weights_1, 
-                   float* beta_1, 
-                   float* weights_2, 
-                   float* beta_2, 
-                   size_t n, 
-                   size_t k, 
-                   size_t m,
-                   bool is_prepare,
-                   bool debug);
+void op_BatchedLinear::forward<float>(
+                                    float* &output, 
+                                    float* input, 
+                                    size_t n, 
+                                    size_t k, 
+                                    size_t m,
+                                    bool is_prepare,
+                                    bool debug);
