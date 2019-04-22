@@ -18,12 +18,12 @@ init_model.restype = c_void_p
 def load_model(is_large_model, model_dir, num_gpu=0):    
     return init_model(is_large_model, num_gpu, bytes(model_dir, encoding='utf-8'))
 
-inference = lib.BERT_Inference
+inference = lib.Cuda_Inference
 inference.argtypes = [c_void_p, ndpointer(numpy.int32), ndpointer(numpy.int32),\
                       c_int, c_int, ndpointer(numpy.int32)]
 inference.restype = Retval
 
-classify = lib.cuda_classify
+classify = lib.Cuda_Classify
 classify.argtypes = [c_void_p, ndpointer(numpy.float32), ndpointer(numpy.int32), ndpointer(numpy.int32),\
                       c_int, c_int, c_int, ndpointer(numpy.int32)]
 

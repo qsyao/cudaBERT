@@ -1,6 +1,5 @@
 #include "manager.cuh"
 #include "load_model.h"
-#include "../ops/elementwise.cuh"
 
 global_handle::global_handle (bool BERT_Large, std::string dir) {
     if(BERT_Large){
@@ -19,6 +18,7 @@ global_handle::global_handle (bool BERT_Large, std::string dir) {
     cudaStreamCreate(&cal_stream);
     cudaStreamCreate(&copy_stream);
     cudaEventCreate(&copy_event);
+    cudaEventCreate(&layer_compute_done);
     checkError(cublasSetStream(handle, cal_stream), "Set cublas stream Error!\n");
 }
 

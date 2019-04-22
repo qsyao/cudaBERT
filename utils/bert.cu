@@ -247,7 +247,8 @@ void bert::BERT_Inference (
                                      hidden_size,
                                      output_out);
 
-        cudaStreamSynchronize(handle->cal_stream);
+        cudaEventRecord(handle->layer_compute_done, handle->cal_stream);
+        cudaEventSynchronize(handle->layer_compute_done);
         handle->global_malloc_manage_float.reuse_layer_mem();
         //  Layer End
     }

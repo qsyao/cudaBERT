@@ -2,13 +2,6 @@
 
 #include "math.h"
 
-template <typename T> 
-__global__ void MemoryCpyLinear(T* out, T* in, size_t max, size_t warpsize) {
-    for(int i = blockIdx.x * blockDim.x + threadIdx.x ; i < max; i += gridDim.x * blockDim.x)
-        out[i] = in[i%warpsize];
-    __syncthreads();
-}
-
 template <typename T>
 __global__ void device_copy_pooler(T* out, 
                                    T* in, 
@@ -40,9 +33,6 @@ void copy_pooler(T* &output, T* tensor, global_handle* handle){
 
 template 
 void copy_pooler<float>(float* &output, float* tensor, global_handle* handle);
-
-template
-__global__ void MemoryCpyLinear<float>(float* out, float* in, size_t max, size_t warpsize);
 
 template <typename T> 
 __device__ void BertTranspose (T* out, 

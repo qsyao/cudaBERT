@@ -25,7 +25,22 @@ bert* init_model(bool large = false, int num_gpu=0, char dir[] = ""){
     return ret;
 }
 
-void cuda_classify (bert* model,
+Retval Cuda_Inference(bert* model,
+                    int* words,
+                    int* token_types,
+                    int batchsize,
+                    int seq_length,
+                    int* masks){
+    model->BERT_Inference(  words,
+                            token_types,
+                            batchsize,
+                            seq_length,
+                            masks);
+    
+    return model->ret;
+}
+
+void Cuda_Classify (bert* model,
                     float* output,
                     int* words, 
                     int* token_types, 
@@ -68,7 +83,7 @@ void test(int batchsize, int seq_length, int nIter, bool base, int num_gpu){
                    (1024) * model->handle->hidden_size * sizeof(float)));
 
     //Warm Up
-    for(int i = 0; i < 1; i++){
+    for(int i = 0; i < 10; i++){
         model->BERT_Inference(
                             test_word_id, 
                             test_token_type_id, 

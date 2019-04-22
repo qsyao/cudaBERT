@@ -78,6 +78,7 @@ class bert {
         std::vector<op_Batch_Matmul*> head_value;
         op_Tanh* op_tanh;
         op_SoftMax* classify_softmax;
+
 };
 
 #endif

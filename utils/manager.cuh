@@ -58,6 +58,8 @@ class global_handle {
 
         cudaStream_t cal_stream;
         cudaStream_t copy_stream;
+        
+        cudaEvent_t layer_compute_done;
 };
 
 #endif

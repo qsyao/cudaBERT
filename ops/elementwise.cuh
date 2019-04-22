@@ -3,9 +3,6 @@
 
 #include "op_kernel.cuh"
 
-template <typename T> 
-__global__ void MemoryCpyLinear(T* out, T* in, size_t max, size_t warpsize) ;
-
 template <typename T>
 void copy_pooler(T* &output, T* tensor, global_handle* handle);
 
