@@ -381,6 +381,10 @@ T *classify_inference(global_manager *handle,
               num_classes,
               false);
 
+    T *tmp_linear_output;
+    tmp_linear_output = handle->global_malloc_manage_float.get_new_head_point(batchsize * num_classes);
+    checkCudaErrors(cudaMemcpyAsync(tmp_linear_output, linear_output, batchsize * num_classes * sizeof(T), cudaMemcpyDeviceToDevice));
+
     U *calsses_gpu;
     calsses_gpu = handle->global_malloc_manage_int.get_new_head_point(batchsize);
     checkCudaErrors(cudaMemcpyAsync(calsses_gpu, classes, batchsize * sizeof(int), cudaMemcpyHostToDevice));
@@ -388,8 +392,38 @@ T *classify_inference(global_manager *handle,
     T *crossEntropyLoss;
     crossEntropyLoss = handle->global_malloc_manage_float.get_new_head_point(batchsize + 1);
 
+    debug_tensor_gpu<float>(std::string("linear_output"), linear_output, 2, 2, batchsize);
+
     HostApplyCrossEntropyLoss<T, U>(handle, crossEntropyLoss, linear_output, calsses_gpu, batchsize, num_classes);
-    // debug_tensor_gpu<float>(std::string("CrossEntropyLoss_output"), crossEntropyLoss, 2, 2);
+    debug_tensor_gpu<float>(std::string("CrossEntropyLoss_output"), crossEntropyLoss, batchsize + 1, batchsize + 1);
+
+    T *grad_CrossEntropyLoss_input;
+    grad_CrossEntropyLoss_input = handle->global_malloc_manage_float.get_new_head_point(batchsize * num_classes);
+
+    T *dout_gpu;
+    dout_gpu = handle->global_malloc_manage_float.get_new_head_point(batchsize);
+
+    T *dout = (T *)malloc(batchsize * sizeof(T));
+    for (int i = 0; i < batchsize; i++)
+        dout[i] = 1.0;
+
+    checkCudaErrors(cudaMemcpyAsync(dout_gpu, dout, batchsize * sizeof(T), cudaMemcpyHostToDevice));
+
+    HostApplyCrossEntropyLossGradient<T, U>(handle, dout_gpu, tmp_linear_output, batchsize, num_classes, calsses_gpu, grad_CrossEntropyLoss_input);
+
+    T *grad_Linear_input;
+    grad_Linear_input = handle->global_malloc_manage_float.get_new_head_point(batchsize * hidden_size);
+
+    T *grad_weights;
+    grad_weights = handle->global_malloc_manage_float.get_new_head_point(hidden_size * num_classes);
+
+    T *grad_bias;
+    grad_bias = handle->global_malloc_manage_float.get_new_head_point(batchsize * num_classes);
+
+    HostApplyLinearGradient<T>(handle, grad_CrossEntropyLoss_input, pooled_output, weights, bias, batchsize, hidden_size, num_classes,
+                               grad_Linear_input, grad_weights, grad_bias);
+    // debug_tensor_gpu<float>(std::string("grad_Linear_input"), grad_Linear_input, hidden_size, hidden_size);
+    free(dout);
 
     return crossEntropyLoss;
 }
