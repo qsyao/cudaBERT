@@ -29,7 +29,7 @@ void Embedding::forward (T* &output,
     size_t seq_length = handle->seq_length;
     size_t hidden_size = handle->hidden_size;
 
-    int total_length = batchsize * seq_length;
+    int total_words = batchsize * seq_length;
 
     output = handle->global_malloc_manage_float.get_new_head_point(
                                          batchsize *
@@ -37,21 +37,21 @@ void Embedding::forward (T* &output,
                                          hidden_size);
 
     dim3 threads(hidden_size, 1, 1);
-    dim3 blocks(min(65536, total_length), 1, 1);
+    dim3 blocks(min(65536, total_words), 1, 1);
     DeviceApplyEmbeddings<<<blocks, threads, 0, handle->cal_stream>>>(
                                                words,
                                                token_type, 
                                                position,
-                                               total_length,
+                                               total_words,
                                                output, 
                                                word_embedding, 
-                                               position_embedding, 
-                                               token_type_embedding);
+                                               token_type_embedding, 
+                                               position_embedding);
     //debug_tensor_gpu<float>(std::string("after embedding add : "), output, 10, handle->hidden_size, 5);
 
     layernorm->forward( output, 
                         output,
-                        total_length, 
+                        total_words, 
                         hidden_size);
     
     //debug_tensor_gpu<float>(std::string("look_up_embedding on GPU"), output, 10, 768, 11*batchsize);

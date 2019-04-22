@@ -34,28 +34,30 @@ class bert {
                          int* &position, 
                          int* &attention_mask);
 
-        Retval BERT_Inference (
-                                int* words, 
-                                int* token_types, 
-                                size_t batchsize, 
-                                size_t seq_length, 
-                                int* attention_mask=nullptr);
+        void BERT_Inference (
+                            int* words, 
+                            int* token_types, 
+                            size_t batchsize, 
+                            size_t seq_length, 
+                            int* attention_mask=nullptr);
 
         float* classify_inference(float* pooler_out, size_t num_classes);
     
-        void get_gpu_result(float* gpu_tensor, 
-                            float* output, 
-                            int total_size) {
+        void get_gpu_result(float* output,
+                            float* gpu_tensor,
+                            size_t total_size) {
             checkCudaErrors(cudaMemcpyAsync(output, 
-                        gpu_tensor, 
-                        sizeof(float)*total_size, 
-                        cudaMemcpyDeviceToHost,
-                        handle->cal_stream));
-            
+                                            gpu_tensor, 
+                                            sizeof(float)*total_size, 
+                                            cudaMemcpyDeviceToHost,
+                                            handle->cal_stream));
+                
             cudaStreamSynchronize(handle->cal_stream);
         }
 
         global_handle* handle;
+
+        Retval ret;
 
     private:
         std::vector<op_LayerNorm*> attention_layernorm;

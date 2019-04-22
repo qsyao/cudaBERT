@@ -33,14 +33,14 @@ void cuda_classify (bert* model,
                     int seq_length,
                     int num_classes,
                     int* attention_mask){
-    Retval ret = model->BERT_Inference( words,
-                                        token_types,
-                                        batchsize,
-                                        seq_length,
-                                        attention_mask);
+    model->BERT_Inference(  words,
+                            token_types,
+                            batchsize,
+                            seq_length,
+                            attention_mask);
     float * output_gpu;
-    output_gpu = model->classify_inference(ret.pooled_output, num_classes);
-    model->get_gpu_result(output_gpu, output, batchsize*num_classes);
+    output_gpu = model->classify_inference(model->ret.pooled_output, num_classes);
+    model->get_gpu_result(output, output_gpu, batchsize*num_classes);
 }
 
 void test(int batchsize, int seq_length, int nIter, bool base, int num_gpu){
@@ -63,14 +63,31 @@ void test(int batchsize, int seq_length, int nIter, bool base, int num_gpu){
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
 
-    // Warm Up
-    for(int i = 0; i < 10; i++){
+    float* output_pinned;
+    checkCudaErrors(cudaMallocHost((void **)&output_pinned,
+                   (1024) * model->handle->hidden_size * sizeof(float)));
+
+    //Warm Up
+    for(int i = 0; i < 1; i++){
         model->BERT_Inference(
                             test_word_id, 
                             test_token_type_id, 
                             batchsize, 
                             seq_length, 
                             test_attention_mask);
+        model->get_gpu_result(output_pinned,
+                            model->ret.pooled_output, 
+                            model->handle->batchsize * model->handle->hidden_size);
+        std::cout<<model->ret.pooled_output<<std::endl;
+        std::cout<<model->handle->batchsize * model->handle->hidden_size<<std::endl;
+
+        if ( i == 0 ) {
+            debug_tensor<float>(std::string("unit_test"),
+                                output_pinned, 
+                                10, 
+                                model->handle->hidden_size,
+                                max(model->handle->batchsize/10, (long)1));
+        }
     }
 
     double total_time = 0;
@@ -83,6 +100,11 @@ void test(int batchsize, int seq_length, int nIter, bool base, int num_gpu){
                             batchsize, 
                             seq_length, 
                             test_attention_mask);
+        
+        model->get_gpu_result(output_pinned,
+                            model->ret.pooled_output, 
+                            model->handle->batchsize * model->handle->hidden_size);
+
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
         cudaEventElapsedTime(&it_time, start, stop);

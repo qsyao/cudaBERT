@@ -12,8 +12,8 @@ void bert::init_ops(){
     for(int i = 0; i < handle->num_hidden_layers; i++){
         std::string num_layer = "_" + std::to_string(i) + "_";
 
-        op_LayerNorm* layernorm = new op_LayerNorm("attention_output_LayerNorm_gamma",
-                                               "attention_output_LayerNorm_beta",
+        op_LayerNorm* layernorm = new op_LayerNorm(num_layer + "attention_output_LayerNorm_gamma",
+                                                num_layer + "attention_output_LayerNorm_beta",
                                                 handle);
         attention_layernorm.push_back(layernorm);
 
@@ -47,12 +47,12 @@ void bert::init_ops(){
         head_value.push_back(batchgemm);
 
         op_BatchedLinear* batchlinear = new op_BatchedLinear(
-                                        "attention_self_query_kernel",
-                                        "attention_self_query_bias",
-                                        "attention_self_key_kernel",
-                                        "attention_self_key_bias",
-                                        "attention_self_value_kernel",
-                                        "attention_self_value_bias",
+                                        num_layer + "attention_self_query_kernel",
+                                        num_layer + "attention_self_query_bias",
+                                        num_layer + "attention_self_key_kernel",
+                                        num_layer + "attention_self_key_bias",
+                                        num_layer + "attention_self_value_kernel",
+                                        num_layer + "attention_self_value_bias",
                                         handle);
         batched_linear.push_back(batchlinear);
 
@@ -123,22 +123,22 @@ void bert::copy_inputs( int* &words,
                                         3*total_length*sizeof(int), 
                                         cudaMemcpyHostToDevice));
     }
-    cudaFree(host_input_package);
+    cudaFreeHost(host_input_package);
     words = word_gpu;
     token_type = token_type_gpu;
     position = positions_gpu;
 }
 
-Retval bert::BERT_Inference (
+void bert::BERT_Inference (
                     int* words, 
                     int* token_types, 
                     size_t batchsize, 
                     size_t seq_length, 
                     int* attention_mask){
-    Retval ret;
 
     size_t hidden_size = handle->hidden_size;
     size_t total_length = batchsize * seq_length * hidden_size;
+    size_t num_words = batchsize * seq_length;
     size_t num_attention_heads= handle->num_attention_heads;
     size_t intermediate_size = handle->intermediate_size;
 
@@ -157,7 +157,7 @@ Retval bert::BERT_Inference (
     for(int i = 0; i < handle->num_hidden_layers; i++){
 
         handle->global_malloc_manage_float.record_layer_start();
-
+        
         // start of Attention
 
         float *batched_gemm_out, *split_heads_out;
@@ -174,6 +174,7 @@ Retval bert::BERT_Inference (
         head_key = head_query + total_length;
         head_val = head_key + total_length;
 
+
         float *query_key_gemm;
         query_key[i]->forward(batchsize * num_attention_heads,
                             seq_length,
@@ -188,7 +189,7 @@ Retval bert::BERT_Inference (
         mask[i]->forward(query_key_gemm, attention_mask, 8.0);
         
         softmax[i]->forward(query_key_gemm,
-                            batchsize * num_attention_heads*seq_length,
+                            batchsize * num_attention_heads * seq_length,
                             seq_length);
         
         float* attention;
@@ -204,31 +205,32 @@ Retval bert::BERT_Inference (
         
         float *merge_heads_out;
         merge_heads[i]->forward(merge_heads_out, attention, 1, false);
-
+        
         attention_linear[i]->forward(temp,
                                      merge_heads_out,
-                                     batchsize * seq_length,
+                                     num_words,
                                      hidden_size,
                                      hidden_size);
         merge_heads_out = temp;
-
+        
         attention_layernorm[i]->forward(tensor_layer,
                                         tensor_layer,
-                                        total_length,
+                                        num_words,
                                         hidden_size,
                                         merge_heads_out);
-
+                
         // End of Attention
         // Start of Intermediate
-
+if(i==0)
+debug_tensor_gpu<float>(std::string("layer_output"), tensor_layer, 10, handle->hidden_size, 10);
         float* intermediate_out;
         intermediate_linear[i]->forward(intermediate_out,
                                         tensor_layer,
-                                        total_length,
+                                        num_words,
                                         hidden_size,
                                         intermediate_size);
 
-        gelu[i]->forward(intermediate_out, total_length * intermediate_size);
+        gelu[i]->forward(intermediate_out, num_words * intermediate_size);
 
         // End of Intermedaite
         // Start of Output
@@ -236,13 +238,13 @@ Retval bert::BERT_Inference (
         float* output_out;
         output_linear[i]->forward(output_out,
                                   intermediate_out,
-                                  total_length,
+                                  num_words,
                                   intermediate_size,
                                   hidden_size);
         
         output_layernorm[i]->forward(tensor_layer,
                                      tensor_layer,
-                                     total_length,
+                                     num_words,
                                      hidden_size,
                                      output_out);
         
@@ -259,11 +261,12 @@ Retval bert::BERT_Inference (
                            batchsize,
                            hidden_size,
                            hidden_size);
+    
+    op_tanh->forward(pooler_out, batchsize * hidden_size);
     // Pooler End
-
+    debug_tensor_gpu<float>(std::string("batched_gemm_out"), pooler_out, 10, handle->hidden_size, 1);
     ret.tensor = tensor_layer;
     ret.pooled_output = pooler_out;
-    return ret;
 }
 
 float* bert::classify_inference(float* pooler_out, size_t num_classes){

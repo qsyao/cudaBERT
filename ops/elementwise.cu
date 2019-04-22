@@ -25,7 +25,7 @@ __global__ void device_copy_pooler(T* out,
 
 template <typename T>
 void copy_pooler(T* &output, T* tensor, global_handle* handle){
-    handle->global_malloc_manage_float.get_new_head_point(
+    output = handle->global_malloc_manage_float.get_new_head_point(
                             handle->batchsize * handle->hidden_size);
 
     dim3 threads(handle->hidden_size, 1, 1);
@@ -79,8 +79,8 @@ __global__ void FusionTranspose (T* out,
                                 size_t batchsize, 
                                 size_t seq_length,
                                 size_t num_heads,
-                                long total_length,
-                                long total, 
+                                size_t total_length,
+                                size_t total, 
                                 bool muti_head) {
     for(int i = 0; i < num; i++)
         BertTranspose(out + i*total, in + i*total, batchsize, seq_length, num_heads, total_length, muti_head);
