@@ -78,8 +78,6 @@ void test(int batchsize, int seq_length, int nIter, bool base, int num_gpu){
         model->get_gpu_result(output_pinned,
                             model->ret.pooled_output, 
                             model->handle->batchsize * model->handle->hidden_size);
-        std::cout<<model->ret.pooled_output<<std::endl;
-        std::cout<<model->handle->batchsize * model->handle->hidden_size<<std::endl;
 
         if ( i == 0 ) {
             debug_tensor<float>(std::string("unit_test"),

@@ -36,7 +36,7 @@ void bert::init_ops(){
         intermediate_linear.push_back(linear);
 
         linear = new op_Linear(num_layer + "output_dense_kernel",
-                                num_layer + "output_dense_kernel",
+                                num_layer + "output_dense_bias",
                                 handle);
         output_linear.push_back(linear);
 
@@ -221,8 +221,7 @@ void bert::BERT_Inference (
                 
         // End of Attention
         // Start of Intermediate
-if(i==0)
-debug_tensor_gpu<float>(std::string("layer_output"), tensor_layer, 10, handle->hidden_size, 10);
+
         float* intermediate_out;
         intermediate_linear[i]->forward(intermediate_out,
                                         tensor_layer,
@@ -241,13 +240,13 @@ debug_tensor_gpu<float>(std::string("layer_output"), tensor_layer, 10, handle->h
                                   num_words,
                                   intermediate_size,
                                   hidden_size);
-        
+
         output_layernorm[i]->forward(tensor_layer,
                                      tensor_layer,
                                      num_words,
                                      hidden_size,
                                      output_out);
-        
+
         cudaStreamSynchronize(handle->cal_stream);
         handle->global_malloc_manage_float.reuse_layer_mem();
         //  Layer End
@@ -264,7 +263,7 @@ debug_tensor_gpu<float>(std::string("layer_output"), tensor_layer, 10, handle->h
     
     op_tanh->forward(pooler_out, batchsize * hidden_size);
     // Pooler End
-    debug_tensor_gpu<float>(std::string("batched_gemm_out"), pooler_out, 10, handle->hidden_size, 1);
+    
     ret.tensor = tensor_layer;
     ret.pooled_output = pooler_out;
 }
