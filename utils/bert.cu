@@ -76,7 +76,9 @@ void bert::init_ops(){
     classify_linear = new op_Linear("classifier_kernel",
                                     "classifier_bias",
                                     handle);
-    
+
+    loss = new op_CrossEntropyLoss(handle);
+
     classify_softmax = new op_SoftMax(handle);
 
     embedding = new Embedding(handle);
@@ -269,15 +271,48 @@ void bert::BERT_Inference (
     ret.pooled_output = pooler_out;
 }
 
-float* bert::classify_inference(float* pooler_out, size_t num_classes){
-    float* classify_out;
+float *bert::classify_inference(int *classes, float *pooler_out, size_t num_classes) {
+    float *loss_out;
+    float *classify_out;
     classify_linear->forward(classify_out,
                              pooler_out,
                              handle->batchsize,
                              handle->hidden_size,
                              num_classes);
-    
-    classify_softmax->forward(classify_out, handle->batchsize, num_classes);
+//    debug_tensor_gpu<float>(std::string("classify_out"), classify_out, 2, 2, handle->batchsize);
 
-    return classify_out;
+    int *calsses_gpu;
+    calsses_gpu = handle->global_malloc_manage_int.get_new_head_point(handle->hidden_size);
+    checkCudaErrors(cudaMemcpyAsync(calsses_gpu, classes, handle->hidden_size * sizeof(int), cudaMemcpyHostToDevice));
+
+    loss->forward(loss_out, classify_out, calsses_gpu, handle->batchsize, num_classes);
+//    debug_tensor_gpu<float>(std::string("CrossEntropyLoss_output"), loss_out, handle->batchsize + 1,
+//                            handle->batchsize + 1);
+
+    return loss_out;
+}
+
+void bert::classify_inference_backward(int *classes, size_t num_classes) {
+    int *calsses_gpu;
+    calsses_gpu = handle->global_malloc_manage_int.get_new_head_point(handle->hidden_size);
+    checkCudaErrors(cudaMemcpyAsync(calsses_gpu, classes, handle->hidden_size * sizeof(int), cudaMemcpyHostToDevice));
+
+    float *dout_gpu;
+    dout_gpu = handle->global_malloc_manage_float.get_new_head_point(1);
+    float *dout = (float *) malloc(sizeof(float));
+    dout[0] = 1.0;
+    checkCudaErrors(cudaMemcpyAsync(dout_gpu, dout, sizeof(float), cudaMemcpyHostToDevice));
+
+    loss->backward(dout_gpu, handle->batchsize, num_classes, calsses_gpu);
+//    debug_tensor_gpu<float>(std::string("Grid CrossEntropyLoss_output"), loss->grad_input, n2, n2, n1);
+
+    // debug_tensor_gpu<float>(std::string("classify_linear->stored_input"), classify_linear->stored_input, 768, 768, 2);
+    classify_linear->backward(loss->grad_input, handle->batchsize,
+                              handle->hidden_size,
+                              num_classes);
+//    debug_tensor_gpu<float>(std::string("grad_input"), classify_linear->grad_input, k, k, n);
+//    debug_tensor_gpu<float>(std::string("grad_kernel"), grad_kernel, m, m, k);
+//    debug_tensor_gpu<float>(std::string("grad_bias"), grad_bias, m, m);
+
+    return;
 }

@@ -4,6 +4,9 @@
 #include "op_kernel.cuh"
 #include "../utils/common.h"
 
+template <typename T>
+__global__ void MemoryCpyLinear(T* out, T* in, size_t max, size_t warpsize, float mul = 1.0) ;
+
 class op_Linear : public op_kernel{
   public:
     op_Linear(std::string key_kernel, 
@@ -29,16 +32,23 @@ class op_Linear : public op_kernel{
                 size_t m,
                 bool is_prepare=false,
                 bool debug=false);
-    
-    void backward();
+
+    template<typename T>
+    void backward(T *dout, size_t n,
+                  size_t k,
+                  size_t m);
 
     void update();
 
-  private:
+private:
     size_t n, k; // Shape of Weight: [n, k]
 
-    float* kernel;
-    float* bias;
+    float *kernel;
+    float *bias;
+    float *grad_kernel;
+    float *grad_bias;
+public:
+    float *grad_input;
 };
 
 class op_BatchedLinear : public op_kernel{

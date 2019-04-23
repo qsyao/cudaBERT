@@ -40,11 +40,12 @@ Retval Cuda_Inference(bert* model,
     return model->ret;
 }
 
-void Cuda_Classify (bert* model,
+void cuda_classify (bert* model,
                     float* output,
-                    int* words, 
-                    int* token_types, 
-                    int batchsize, 
+                    int* words,
+                    int* token_types,
+                    int *classes,
+                    int batchsize,
                     int seq_length,
                     int num_classes,
                     int* attention_mask){
@@ -54,8 +55,9 @@ void Cuda_Classify (bert* model,
                             seq_length,
                             attention_mask);
     float * output_gpu;
-    output_gpu = model->classify_inference(model->ret.pooled_output, num_classes);
-    model->get_gpu_result(output, output_gpu, batchsize*num_classes);
+    output_gpu = model->classify_inference(classes, model->ret.pooled_output, num_classes);
+
+    model->classify_inference_backward(classes, num_classes);
 }
 
 void test(int batchsize, int seq_length, int nIter, bool base, int num_gpu){
@@ -66,6 +68,7 @@ void test(int batchsize, int seq_length, int nIter, bool base, int num_gpu){
     int test_token_type_id_seed[11] = {0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1};
 
     int attention_mask[11] = {1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0};
+    int classes[4] = {1, 1, 1, 1};
 
     int *test_word_id, *test_token_type_id, *test_attention_mask;
     test_word_id = filling_inputs(test_word_id_seed, seq_length, 11, batchsize);
@@ -94,29 +97,41 @@ void test(int batchsize, int seq_length, int nIter, bool base, int num_gpu){
                             model->ret.pooled_output, 
                             model->handle->batchsize * model->handle->hidden_size);
 
-        if ( i == 0 ) {
-            debug_tensor<float>(std::string("unit_test"),
-                                output_pinned, 
-                                10, 
-                                model->handle->hidden_size,
-                                max(model->handle->batchsize/10, (long)1));
-        }
+//        if ( i == 0 ) {
+//            debug_tensor<float>(std::string("unit_test"),
+//                                output_pinned,
+//                                10,
+//                                model->handle->hidden_size,
+//                                max(model->handle->batchsize/10, (long)1));
+//        }
     }
 
     double total_time = 0;
     for(int i = 0; i < nIter; i++){
         float it_time;
         cudaEventRecord(start);
-        model->BERT_Inference(
-                            test_word_id, 
-                            test_token_type_id, 
-                            batchsize, 
-                            seq_length, 
-                            test_attention_mask);
-        
-        model->get_gpu_result(output_pinned,
-                            model->ret.pooled_output, 
-                            model->handle->batchsize * model->handle->hidden_size);
+        float * output;
+        cuda_classify(
+                model,
+                output,
+                test_word_id,
+                test_token_type_id,
+                classes,
+                batchsize,
+                seq_length,
+                2,
+                test_attention_mask
+        );
+//        model->BERT_Inference(
+//                            test_word_id,
+//                            test_token_type_id,
+//                            batchsize,
+//                            seq_length,
+//                            test_attention_mask);
+//
+//        model->get_gpu_result(output_pinned,
+//                            model->ret.pooled_output,
+//                            model->handle->batchsize * model->handle->hidden_size);
 
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);

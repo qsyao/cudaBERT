@@ -31,9 +31,11 @@ void debug_tensor_gpu(std::string tag, void* gpu_tensor, int max_x, int length_x
     for(int i = 0; i < max_y; i++){
         for(int j = 0; j < max_x; j++)
             std::cout<<" "<<cpu_mem[i*length_x + j]<<" ";
-        std::cout<<" ... "<<cpu_mem[i*length_x + length_x -3]<<"  "
-                          <<cpu_mem[i*length_x + length_x -2]<<"  "
-                          <<cpu_mem[i*length_x + length_x -1]<<"  ";
+        if(i*length_x + length_x -3 > 0) {
+//            std::cout << " ... " << cpu_mem[i * length_x + length_x - 3] << "  "
+//                      << cpu_mem[i * length_x + length_x - 2] << "  "
+//                      << cpu_mem[i * length_x + length_x - 1] << "  ";
+        }
         std::cout<<std::endl;
     }
     free(cpu_mem);

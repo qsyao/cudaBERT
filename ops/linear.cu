@@ -1,12 +1,15 @@
 #include "linear.cuh"
 #include "matmul.cuh"
 
-template <typename T> 
-__global__ void MemoryCpyLinear(T* out, T* in, int max, int warpsize) {
+template <typename T>
+__global__ void MemoryCpyLinear(T* out, T* in, size_t max, size_t warpsize, float mul) {
     for(int i = blockIdx.x * blockDim.x + threadIdx.x ; i < max; i += gridDim.x * blockDim.x)
-        out[i] = in[i%warpsize];
+        out[i] = static_cast<T>(in[i%warpsize] * mul);
     __syncthreads();
 }
+
+template
+__global__ void MemoryCpyLinear<float>(float* out, float* in, size_t max, size_t warpsize, float mul);
 
 op_BatchedLinear::op_BatchedLinear( std::string key_query_kernel, 
                                     std::string key_query_bias,
@@ -79,6 +82,9 @@ void op_Linear::forward (
                         size_t m,
                         bool is_prepare,
                         bool debug) {
+    stored_input = handle->global_malloc_manage_float.get_new_head_point(n * k);
+    checkCudaErrors(cudaMemcpyAsync(stored_input, input, n * k * sizeof(float), cudaMemcpyDeviceToDevice));
+
     output = handle->global_malloc_manage_float.get_new_head_point(n * m);
 
     if (debug) {
@@ -136,6 +142,87 @@ void op_Linear::forward<float>(
                             size_t m,
                             bool is_prepare,
                             bool debug);
+
+
+template<typename T>
+__global__ void MemoryCpyLinearTranpose(T *out, T *in, int n, int m, int max) {
+    for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < max; i += gridDim.x * blockDim.x) {
+        out[(i % m) * n + i / m] = in[i];
+    }
+    __syncthreads();
+}
+
+template<typename T>
+void op_Linear::backward(T *dout, size_t n,
+                         size_t k,
+                         size_t m) {
+    T *kernel_tranpose;
+    kernel_tranpose = handle->global_malloc_manage_float.get_new_head_point(k * m);
+    dim3 threads(1024, 1, 1);
+    dim3 blocks(min((long) 65535, (k * m + 1023) / 1024), 1, 1);
+    MemoryCpyLinearTranpose<T> << < blocks, threads, 0, handle->copy_stream >> >
+                                                        (kernel_tranpose, kernel, k, m, k * m);
+
+    cudaEventRecord(handle->copy_event, handle->copy_stream);
+    cudaStreamWaitEvent(handle->cal_stream, handle->copy_event, 0);
+//    debug_tensor_gpu<float>(std::string("kernel_tranpose"), kernel_tranpose, k, k, m);
+
+    std::vector <size_t> a_shape = {n, m};
+    std::vector <size_t> b_shape = {m, k};
+    std::vector <size_t> c_shape = {n, k};
+
+    grad_input = handle->global_malloc_manage_float.get_new_head_point(n * k);
+
+    matmul(handle->handle,
+           dout,
+           a_shape,
+           kernel_tranpose,
+           b_shape,
+           grad_input,
+           c_shape,
+           false,
+           false,
+           1.0f,
+           0.0f);
+
+    T *input_tranpose;
+    input_tranpose = handle->global_malloc_manage_float.get_new_head_point(n * k);
+    dim3 threads1(1024, 1, 1);
+    dim3 blocks1(min((long) 65535, (k * n + 1023) / 1024), 1, 1);
+    MemoryCpyLinearTranpose<T> << < blocks1, threads1, 0, handle->copy_stream >> >
+                                                          (input_tranpose, stored_input, n, k, n * k);
+
+    cudaEventRecord(handle->copy_event, handle->copy_stream);
+    cudaStreamWaitEvent(handle->cal_stream, handle->copy_event, 0);
+
+    a_shape = {k, n};
+    b_shape = {n, m};
+    c_shape = {k, m};
+
+    grad_kernel = handle->global_malloc_manage_float.get_new_head_point(k * m);
+    matmul(handle->handle,
+           input_tranpose,
+           a_shape,
+           dout,
+           b_shape,
+           grad_kernel,
+           c_shape,
+           false,
+           false,
+           1.0f,
+           0.0f);
+
+    grad_bias = handle->global_malloc_manage_float.get_new_head_point(n * m);
+    dim3 threads2(1024, 1, 1);
+    dim3 blocks2(min((long) 65535, (n * m + 1023) / 1024), 1, 1);
+    MemoryCpyLinear<T> << < blocks2, threads2, 0, handle->copy_stream >> > (grad_bias, dout, n * m, n * m, n);
+}
+
+template
+void op_Linear::backward<float>(
+        float *dout, size_t n,
+        size_t k,
+        size_t m);
 
 template <typename T>
 void op_BatchedLinear::forward(

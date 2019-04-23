@@ -42,7 +42,8 @@ set(SOURCE_FILES
         ops/matmul.cu
         ops/softmax.cu
         ops/batch_matmul.cu
-        cuda_bert.cu)
+        cuda_bert.cu
+        ops/crossEntropyLoss.cu)
 
 cuda_add_library(cudaBERT SHARED ${SOURCE_FILES})
 add_dependencies(cudaBERT cnpy)
