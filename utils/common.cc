@@ -65,7 +65,16 @@ void dump_tensor(std::string file_name,
     cpu_mem = (T *)malloc(sizeof(T) * length);
     T* tensor = static_cast<T *>(gpu_tensor);
     checkCudaErrors(cudaMemcpyAsync(cpu_mem, tensor, sizeof(T)*length, cudaMemcpyDeviceToHost));
-    cnpy::npy_save("debug/cubert/" + file_name + ".npy", cpu_mem, shape);
+    cnpy::npy_save(file_name + ".npy", cpu_mem, shape);
     free(cpu_mem);
     return ;
 }
+
+template
+void dump_tensor<float>(std::string file_name, 
+                void* gpu_tensor,
+                size_t dim1,
+                size_t dim2,
+                size_t dim3,
+                size_t dim4,
+                size_t dim5);

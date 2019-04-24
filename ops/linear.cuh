@@ -4,8 +4,7 @@
 #include "op_kernel.cuh"
 #include "../utils/common.h"
 
-template <typename T>
-__global__ void MemoryCpyLinear(T* out, T* in, size_t max, size_t warpsize, float mul = 1.0) ;
+__global__ void MemoryCpyLinear(float* out, float* in, size_t max, size_t warpsize, float mul = 1.0) ;
 
 class op_Linear : public op_kernel{
   public:

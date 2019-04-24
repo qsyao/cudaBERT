@@ -40,7 +40,7 @@ class global_handle {
 
         cudaEvent_t copy_event;
 
-        std::string dir_npy = "/home/wenxh/zyc/model_npy/base_uncased";
+        std::string dir_npy = "model_npy/base_uncased";
         size_t hidden_size = 768;
         size_t num_hidden_layers = 12;
         size_t num_attention_heads = 12;
@@ -50,6 +50,8 @@ class global_handle {
         size_t seq_length;
         size_t max_seq_length = 512;
         size_t max_mem_size = 200 * 512;
+
+        size_t max_batchsize = 1024;
 
         malloc_manage<float> global_malloc_manage_float;
         malloc_manage<int> global_malloc_manage_int;

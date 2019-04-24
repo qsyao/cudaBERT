@@ -86,7 +86,7 @@ void test(int batchsize, int seq_length, int nIter, bool base, int num_gpu){
                    (1024) * model->handle->hidden_size * sizeof(float)));
 
     //Warm Up
-    for(int i = 0; i < 10; i++){
+    for(int i = 0; i < 1; i++){
         model->BERT_Inference(
                             test_word_id, 
                             test_token_type_id, 
@@ -97,13 +97,13 @@ void test(int batchsize, int seq_length, int nIter, bool base, int num_gpu){
                             model->ret.pooled_output, 
                             model->handle->batchsize * model->handle->hidden_size);
 
-//        if ( i == 0 ) {
-//            debug_tensor<float>(std::string("unit_test"),
-//                                output_pinned,
-//                                10,
-//                                model->handle->hidden_size,
-//                                max(model->handle->batchsize/10, (long)1));
-//        }
+       if ( i == 0 ) {
+           debug_tensor<float>(std::string("unit_test"),
+                               output_pinned,
+                               10,
+                               model->handle->hidden_size,
+                               max(model->handle->batchsize/10, (long)1));
+       }
     }
 
     double total_time = 0;

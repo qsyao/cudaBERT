@@ -40,11 +40,11 @@ void bert::init_ops(){
                                 handle);
         output_linear.push_back(linear);
 
-        op_Batch_Matmul* batchgemm = new op_Batch_Matmul(handle);
-        query_key.push_back(batchgemm);
+        Query_Key* qk = new Query_Key(handle);
+        query_key.push_back(qk);
 
-        batchgemm = new op_Batch_Matmul(handle);
-        head_value.push_back(batchgemm);
+        Prob_Value* pv = new Prob_Value(handle);
+        prob_value.push_back(pv);
 
         op_BatchedLinear* batchlinear = new op_BatchedLinear(
                                         num_layer + "attention_self_query_kernel",
@@ -55,12 +55,6 @@ void bert::init_ops(){
                                         num_layer + "attention_self_value_bias",
                                         handle);
         batched_linear.push_back(batchlinear);
-
-        op_FusionTranspose* trans = new op_FusionTranspose(handle);
-        split_heads.push_back(trans);
-
-        trans = new op_FusionTranspose(handle);
-        merge_heads.push_back(trans);
 
         op_Mask_Add* op_mask = new op_Mask_Add(handle);
         mask.push_back(op_mask);
@@ -162,32 +156,24 @@ void bert::BERT_Inference (
         
         // start of Attention
 
-        float *batched_gemm_out, *split_heads_out;
+        float *batched_gemm_out;
         batched_linear[i]->forward(batched_gemm_out,
                                    tensor_layer,
                                    batchsize * seq_length,
                                    hidden_size,
                                    hidden_size);
-        
-        split_heads[i]->forward(split_heads_out, batched_gemm_out, 3, true);
 
-        float *head_query, *head_key, *head_val;
-        head_query = split_heads_out;
-        head_key = head_query + total_length;
-        head_val = head_key + total_length;
-
+        float *query, *key, *val;
+        query = batched_gemm_out;
+        key = query + total_length;
+        val = key + total_length;
 
         float *query_key_gemm;
-        query_key[i]->forward(batchsize * num_attention_heads,
-                            seq_length,
-                            hidden_size / num_attention_heads,
-                            seq_length,
-                            head_query,
-                            head_key,
-                            query_key_gemm,
-                            false,
-                            true);
-        
+        query_key[i]->forward(
+                            query,
+                            key,
+                            query_key_gemm);
+
         mask[i]->forward(query_key_gemm, attention_mask, 8.0);
         
         softmax[i]->forward(query_key_gemm,
@@ -195,32 +181,42 @@ void bert::BERT_Inference (
                             seq_length);
         
         float* attention;
-        head_value[i]->forward(batchsize * num_attention_heads,
-                             seq_length,
-                             seq_length,
-                             hidden_size / num_attention_heads,
+        prob_value[i]->forward(
                              query_key_gemm,
-                             head_val,
-                             attention,
-                             false,
-                             false);
-        
-        float *merge_heads_out;
-        merge_heads[i]->forward(merge_heads_out, attention, 1, false);
-        
+                             val,
+                             attention);
+        if(i==0){
+        dump_tensor<float>(std::string("query_key_gemm"), query_key_gemm, batchsize, num_attention_heads, seq_length, 64);
+        dump_tensor<float>(std::string("test"), attention, batchsize, seq_length, hidden_size);
+        dump_tensor<float>(std::string("val"), val, batchsize, seq_length, hidden_size);
+        }
+        if (i==0)
+        debug_tensor_gpu<float>(std::string("attention"), attention, 10, hidden_size, seq_length);
+        if(i==0)
         attention_linear[i]->forward(temp,
-                                     merge_heads_out,
+                                     attention,
+                                     num_words,
+                                     hidden_size,
+                                     hidden_size,false,true);
+                            else
+                            attention_linear[i]->forward(temp,
+                                     attention,
                                      num_words,
                                      hidden_size,
                                      hidden_size);
-        merge_heads_out = temp;
-        
+        attention = temp;
+        if (i==0)
+        debug_tensor_gpu<float>(std::string("temp"), temp, 10, hidden_size, seq_length);
+        if (i==0)
+            dump_tensor<float>(std::string("temp"), temp, batchsize, seq_length, hidden_size);
         attention_layernorm[i]->forward(tensor_layer,
                                         tensor_layer,
                                         num_words,
                                         hidden_size,
-                                        merge_heads_out);
-                
+                                        attention);
+                if(i==0){
+        dump_tensor<float>(std::string("tensor_layer"), tensor_layer, batchsize, seq_length, hidden_size);
+        }        
         // End of Attention
         // Start of Intermediate
 
