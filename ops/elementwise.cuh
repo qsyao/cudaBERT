@@ -6,6 +6,22 @@
 template <typename T>
 void copy_pooler(T* &output, T* tensor, global_handle* handle);
 
+class op_FusionTranspose : public op_kernel{
+  public:
+    op_FusionTranspose(global_handle* handle)
+               : op_kernel(handle) {};
+
+    ~op_FusionTranspose();
+
+    template <typename T>
+    void forward (T* &out,
+                T* in, 
+                int num, 
+                bool muti_head);
+    
+    void backward() {}
+};
+
 class op_Gelu : public op_kernel {
   public:
     op_Gelu(global_handle* handle)
