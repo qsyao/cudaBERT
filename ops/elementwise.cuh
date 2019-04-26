@@ -6,6 +6,12 @@
 template <typename T>
 void copy_pooler(T* &output, T* tensor, global_handle* handle);
 
+template <typename T>
+void copy_pooler_backward(T* &grad_input, T* dout, global_handle* handle);
+
+template <typename T>
+void short_cut_backward(T* dout1, T* dout2, size_t n, global_handle *handle);
+
 class op_FusionTranspose : public op_kernel{
   public:
     op_FusionTranspose(global_handle* handle)
@@ -33,7 +39,9 @@ class op_Gelu : public op_kernel {
     void forward (T* tensor, size_t max_num) ;
 
     template <typename T>
-    void backward (T* tensor,  size_t max_num) {}
+    void backward (T* dout,  size_t max_num);
+public:
+    float *grad_input;
 };
 
 class op_Tanh : public op_kernel {
@@ -47,7 +55,10 @@ class op_Tanh : public op_kernel {
     void forward (T* tensor, size_t max_num) ;
 
     template <typename T>
-    void backward (T* tensor, size_t max_num) {}
+    void backward (T* dout, size_t max_num);
+
+public:
+    float *grad_input;
 };
 
 class op_Mask_Add : public op_kernel{

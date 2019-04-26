@@ -40,15 +40,15 @@ class op_Linear : public op_kernel{
 
     void update();
 
-private:
+public:
     size_t n, k; // Shape of Weight: [n, k]
 
     float *kernel;
     float *bias;
-    float *grad_kernel;
-    float *grad_bias;
 public:
     float *grad_input;
+    float *grad_kernel;
+    float *grad_bias;
 };
 
 class op_BatchedLinear : public op_kernel{

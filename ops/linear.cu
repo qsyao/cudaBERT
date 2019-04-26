@@ -88,9 +88,9 @@ void op_Linear::forward (
     output = handle->global_malloc_manage_float.get_new_head_point(n * m);
 
     if (debug) {
-        debug_tensor_gpu<T>(std::string("weights"), kernel, 2, 2, 10);
-        debug_tensor_gpu<T>(std::string("bias"), bias, 2, 2, 1);
-        debug_tensor_gpu<T>(std::string("input_Linear"), bias, 10, k, min((int)n,10));
+        debug_tensor_gpu<T>(std::string("weights"), kernel, 768, 768, 2);
+//        debug_tensor_gpu<T>(std::string("bias"), bias, 2, 2, 1);
+        // debug_tensor_gpu<T>(std::string("input_Linear"), bias, 10, k, min((int)n,10));
     }
 
     if(!is_prepare){
@@ -112,7 +112,7 @@ void op_Linear::forward (
     cudaStreamWaitEvent(handle->cal_stream, handle->copy_event, 0);
 
     if(debug)
-        debug_tensor_gpu<T>(std::string("After Linear copy"), output,10, m, min((int)n,10));
+        debug_tensor_gpu<T>(std::string("After Linear copy"), output,min(10,(int)m), m, min((int)n,10));
 
     std::vector<size_t> a_shape={n, k};
     std::vector<size_t> b_shape={k, m};
@@ -129,8 +129,8 @@ void op_Linear::forward (
            false, 
            1.0f, 
            1.0f);
-    if(debug)
-        debug_tensor_gpu<T>(std::string("Linear out"), output, 10, m, min((int)n,10));
+//    if(debug)
+//        debug_tensor_gpu<T>(std::string("Linear out"), output, 10, m, min((int)n,10));
 }
 
 template 
@@ -152,6 +152,15 @@ __global__ void MemoryCpyLinearTranpose(T *out, T *in, int n, int m, int max) {
     __syncthreads();
 }
 
+template <typename T>
+__global__ void cuApplyLinearGradientBias(T *__restrict__ dout, T *grad_bias, const size_t n1, const size_t n2) {
+    for(int i2 = threadIdx.x; i2 < n2; i2 += blockDim.x)
+        for(int i1 = 0; i1 < n1; i1++)
+            grad_bias[i2] += dout[i1 * n2 + i2];
+    __syncthreads();
+}
+
+// TODO:tranpose可以去掉
 template<typename T>
 void op_Linear::backward(T *dout, size_t n,
                          size_t k,
@@ -165,7 +174,7 @@ void op_Linear::backward(T *dout, size_t n,
 
     cudaEventRecord(handle->copy_event, handle->copy_stream);
     cudaStreamWaitEvent(handle->cal_stream, handle->copy_event, 0);
-//    debug_tensor_gpu<float>(std::string("kernel_tranpose"), kernel_tranpose, k, k, m);
+//    debug_tensor_gpu<float>(std::string("kernel_tranpose"), kernel_tranpose, 3, k, m);
 
     std::vector <size_t> a_shape = {n, m};
     std::vector <size_t> b_shape = {m, k};
@@ -184,6 +193,8 @@ void op_Linear::backward(T *dout, size_t n,
            false,
            1.0f,
            0.0f);
+
+//    debug_tensor_gpu<float>(std::string("grad_input"), grad_input, 3, k, n);
 
     T *input_tranpose;
     input_tranpose = handle->global_malloc_manage_float.get_new_head_point(n * k);
@@ -212,10 +223,16 @@ void op_Linear::backward(T *dout, size_t n,
            1.0f,
            0.0f);
 
-    grad_bias = handle->global_malloc_manage_float.get_new_head_point(n * m);
-    dim3 threads2(1024, 1, 1);
-    dim3 blocks2(min((long) 65535, (n * m + 1023) / 1024), 1, 1);
-    MemoryCpyLinear<T> << < blocks2, threads2, 0, handle->copy_stream >> > (grad_bias, dout, n * m, n * m, n);
+    grad_bias = handle->global_malloc_manage_float.get_new_head_point(m);
+
+    dim3 threads2(min((long)1024, m), 1, 1);
+    dim3 blocks2(1, 1, 1);
+    cuApplyLinearGradientBias<< < blocks2, threads2, 0, handle->cal_stream >> > (
+            dout,
+            grad_bias,
+            n,
+            m
+            );
 }
 
 template

@@ -16,6 +16,7 @@
 #include "../utils/common.h"
 #include "../ops/elementwise.cuh"
 #include "../ops/op_kernel.cuh"
+#include "../ops/crossEntropyLoss.cuh"
 
 extern "C"
 class bert {
@@ -41,8 +42,9 @@ class bert {
                             size_t seq_length, 
                             int* attention_mask=nullptr);
 
-        float* classify_inference(float* pooler_out, size_t num_classes);
-    
+        float* classify_inference(int* classes, float* pooler_out, size_t num_classes);
+        void classify_inference_backward(int* classes, size_t num_classes);
+
         void get_gpu_result(float* output,
                             float* gpu_tensor,
                             size_t total_size) {
@@ -78,7 +80,7 @@ class bert {
         std::vector<op_Batch_Matmul*> head_value;
         op_Tanh* op_tanh;
         op_SoftMax* classify_softmax;
-
+        op_CrossEntropyLoss* loss;
 };
 
 #endif

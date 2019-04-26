@@ -29,17 +29,23 @@ class op_LayerNorm : public op_kernel{
                 T* input,
                 size_t n1,
                 size_t n2,
-                T* merge_add = nullptr); 
+                T* merge_add = nullptr);
 
-    void backward();
+    template<typename T>
+    void backward(T *dout, size_t n1, size_t n2);
 
     void update_weights();
 
-  private:
+  public:
     size_t warpsize;
     double epsilon = 1e-12;
     float* gamma;
     float* beta;
+    float* grad_input;
+    float* grad_gamma;
+    float* grad_beta;
+    float* mean;
+    float* invvar;
 };
 
 #endif

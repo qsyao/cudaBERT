@@ -113,6 +113,7 @@ class malloc_manage {
         return ;
     }
     T *get_new_head_point(long t_size = 0) {
+        std::cout << "head: " << head << " new_head: " << head + t_size << " tot_size: " << tot_size << std::endl;
         T* now = point_head + head;
         head += t_size;
         assert(head <= tot_size);
