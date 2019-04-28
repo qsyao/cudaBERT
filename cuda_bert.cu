@@ -86,7 +86,7 @@ void test(int batchsize, int seq_length, int nIter, bool base, int num_gpu){
                    (1024) * model->handle->hidden_size * sizeof(float)));
 
     //Warm Up
-    for(int i = 0; i < 1; i++){
+    for(int i = 0; i < 10; i++){
         model->BERT_Inference(
                             test_word_id, 
                             test_token_type_id, 
@@ -111,27 +111,27 @@ void test(int batchsize, int seq_length, int nIter, bool base, int num_gpu){
         float it_time;
         cudaEventRecord(start);
         float * output;
-        cuda_classify(
-                model,
-                output,
-                test_word_id,
-                test_token_type_id,
-                classes,
-                batchsize,
-                seq_length,
-                2,
-                test_attention_mask
-        );
-//        model->BERT_Inference(
-//                            test_word_id,
-//                            test_token_type_id,
-//                            batchsize,
-//                            seq_length,
-//                            test_attention_mask);
-//
-//        model->get_gpu_result(output_pinned,
-//                            model->ret.pooled_output,
-//                            model->handle->batchsize * model->handle->hidden_size);
+        // cuda_classify(
+        //         model,
+        //         output,
+        //         test_word_id,
+        //         test_token_type_id,
+        //         classes,
+        //         batchsize,
+        //         seq_length,
+        //         2,
+        //         test_attention_mask
+        // );
+       model->BERT_Inference(
+                           test_word_id,
+                           test_token_type_id,
+                           batchsize,
+                           seq_length,
+                           test_attention_mask);
+
+       model->get_gpu_result(output_pinned,
+                           model->ret.pooled_output,
+                           model->handle->batchsize * model->handle->hidden_size);
 
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);

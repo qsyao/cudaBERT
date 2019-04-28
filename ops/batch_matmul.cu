@@ -112,7 +112,7 @@ void Prob_Value::forward(const float* prob,
     size_t length_per_heads = handle->hidden_size / num_attention_heads;
 
     output =  handle->global_malloc_manage_float.get_new_head_point(
-                        batchsize * num_attention_heads * seq_length * seq_length);
+                        batchsize * num_attention_heads * seq_length * length_per_heads);
     
     dim3 threads(batchsize, 1, 1);
     dim3 blocks(num_attention_heads, 1, 1);

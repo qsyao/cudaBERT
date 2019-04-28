@@ -87,36 +87,36 @@ void bert::copy_inputs( int* &words,
     size_t batchsize = handle->batchsize;
     size_t seq_length = handle->seq_length;
 
-    int total_length = batchsize * seq_length;
+    int num_words = batchsize * seq_length;
     int *word_gpu, *token_type_gpu, *positions_gpu, *mask_gpu;
 
-    int positions[total_length];
-    for( int i = 0; i < total_length; i++){
+    int positions[num_words];
+    for( int i = 0; i < num_words; i++){
         positions[i] = i % seq_length;
     }
     
     int* host_input_package;
-    checkCudaErrors(cudaMallocHost((void **)&host_input_package, 4*total_length*sizeof(int)));
-    memcpy(host_input_package, words, total_length*sizeof(int));
-    memcpy(host_input_package + total_length, token_type, total_length*sizeof(int));
-    memcpy(host_input_package + 2*total_length, positions, total_length*sizeof(int));
+    checkCudaErrors(cudaMallocHost((void **)&host_input_package, 4*num_words*sizeof(int)));
+    memcpy(host_input_package, words, num_words*sizeof(int));
+    memcpy(host_input_package + num_words, token_type, num_words*sizeof(int));
+    memcpy(host_input_package + 2*num_words, positions, num_words*sizeof(int));
 
-    word_gpu = handle->global_malloc_manage_int.get_new_head_point(total_length);
-    token_type_gpu = handle->global_malloc_manage_int.get_new_head_point(total_length);
-    positions_gpu = handle->global_malloc_manage_int.get_new_head_point(total_length);
+    word_gpu = handle->global_malloc_manage_int.get_new_head_point(num_words);
+    token_type_gpu = handle->global_malloc_manage_int.get_new_head_point(num_words);
+    positions_gpu = handle->global_malloc_manage_int.get_new_head_point(num_words);
     if(attention_mask != nullptr){
-        mask_gpu = handle->global_malloc_manage_int.get_new_head_point(total_length);
-        memcpy(host_input_package + 3*total_length, attention_mask, total_length*sizeof(int));
+        mask_gpu = handle->global_malloc_manage_int.get_new_head_point(num_words);
+        memcpy(host_input_package + 3*num_words, attention_mask, num_words*sizeof(int));
         checkCudaErrors(cudaMemcpyAsync(word_gpu, 
                                         host_input_package, 
-                                        4*total_length*sizeof(int), 
+                                        4*num_words*sizeof(int), 
                                         cudaMemcpyHostToDevice));
         attention_mask = mask_gpu;
     }
     else{
         checkCudaErrors(cudaMemcpyAsync(word_gpu, 
                                         host_input_package, 
-                                        3*total_length*sizeof(int), 
+                                        3*num_words*sizeof(int), 
                                         cudaMemcpyHostToDevice));
     }
     cudaFreeHost(host_input_package);
@@ -185,38 +185,20 @@ void bert::BERT_Inference (
                              query_key_gemm,
                              val,
                              attention);
-        if(i==0){
-        dump_tensor<float>(std::string("query_key_gemm"), query_key_gemm, batchsize, num_attention_heads, seq_length, 64);
-        dump_tensor<float>(std::string("test"), attention, batchsize, seq_length, hidden_size);
-        dump_tensor<float>(std::string("val"), val, batchsize, seq_length, hidden_size);
-        }
-        if (i==0)
-        debug_tensor_gpu<float>(std::string("attention"), attention, 10, hidden_size, seq_length);
-        if(i==0)
+        
         attention_linear[i]->forward(temp,
-                                     attention,
-                                     num_words,
-                                     hidden_size,
-                                     hidden_size,false,true);
-                            else
-                            attention_linear[i]->forward(temp,
-                                     attention,
-                                     num_words,
-                                     hidden_size,
-                                     hidden_size);
+                                    attention,
+                                    num_words,
+                                    hidden_size,
+                                    hidden_size);
         attention = temp;
-        if (i==0)
-        debug_tensor_gpu<float>(std::string("temp"), temp, 10, hidden_size, seq_length);
-        if (i==0)
-            dump_tensor<float>(std::string("temp"), temp, batchsize, seq_length, hidden_size);
+        
         attention_layernorm[i]->forward(tensor_layer,
                                         tensor_layer,
                                         num_words,
                                         hidden_size,
                                         attention);
-                if(i==0){
-        dump_tensor<float>(std::string("tensor_layer"), tensor_layer, batchsize, seq_length, hidden_size);
-        }        
+    
         // End of Attention
         // Start of Intermediate
 
