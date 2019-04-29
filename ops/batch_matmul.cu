@@ -1,22 +1,5 @@
 #include "batch_matmul.cuh"
 
-template <typename T>
-__global__ void mask (
-                    T* tensor, 
-                    int* mask, 
-                    size_t max_num, 
-                    size_t batchsize, 
-                    size_t seq_length) {
-    for(size_t i = blockIdx.x * blockDim.x + threadIdx.x ; i < max_num; i += gridDim.x * blockDim.x){
-        size_t index = seq_length * ( i / ( max_num / batchsize )) + i % seq_length;
-        if(mask != nullptr)
-            tensor[i] = (1 - mask[index]) * -10000.0;
-        else
-            tensor[i] = 0;
-    } 
-    __syncthreads();
-}
-
 void blas_sgemm_batch(  cublasHandle_t handle,
                         const bool TransA, const bool TransB,
                         int m, int n, int k,
@@ -65,8 +48,7 @@ __global__ void load_pointer_vector_qk(const float* query,
 void Query_Key::forward(const float* query,
                         const float* key,
                         float number,
-                        float* &output,
-                        int* mask){
+                        float* &output){
     size_t batchsize = handle->batchsize;
     size_t seq_length = handle->seq_length;
     size_t num_attention_heads = handle->num_attention_heads;
@@ -74,19 +56,6 @@ void Query_Key::forward(const float* query,
 
     output =  handle->global_malloc_manage_float.get_new_head_point(
                         batchsize * num_attention_heads * seq_length * seq_length);
-    
-    dim3 threads_mask(1024, 1, 1);
-    dim3 blocks_mask(min( (long)65535, 
-            seq_length*seq_length*batchsize*num_attention_heads / 1024) + 1, 1, 1);
-    mask<<<blocks_mask, threads_mask, 0, handle->copy_stream>>>(
-                  output, 
-                  mask, 
-                  batchsize * seq_length * num_attention_heads * seq_length, 
-                  batchsize, 
-                  seq_length); 
-    
-    cudaEventRecord(handle->copy_event, handle->copy_stream);
-    cudaStreamWaitEvent(handle->cal_stream, handle->copy_event, 0);
 
     dim3 threads(batchsize, 1, 1);
     dim3 blocks(num_attention_heads, 1, 1);
@@ -107,7 +76,7 @@ void Query_Key::forward(const float* query,
                     number,
                     key_array, num_attention_heads * length_per_heads,
                     query_array, num_attention_heads * length_per_heads,
-                    1.0,
+                    0.0f,
                     out_array, num_attention_heads * seq_length,
                     num_attention_heads * batchsize);
     

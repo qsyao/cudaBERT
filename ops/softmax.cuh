@@ -12,9 +12,11 @@ class op_SoftMax : public op_kernel {
     
     template<typename T> 
     void forward(
+                global_handle* handle,
                 T* tensor,
                 size_t n1,
-                size_t n2
+                size_t n2,
+                int* mask = nullptr
                 );
 
     void backward();

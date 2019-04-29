@@ -170,12 +170,13 @@ void bert::BERT_Inference (
                             query,
                             key,
                             1.0 / 8.0,
-                            query_key_gemm,
-                            attention_mask);
+                            query_key_gemm);
         
-        softmax[i]->forward(query_key_gemm,
+        softmax[i]->forward(handle,
+                            query_key_gemm,
                             batchsize * num_attention_heads * seq_length,
-                            seq_length);
+                            seq_length,
+                            attention_mask);
         
         float* attention;
         prob_value[i]->forward(

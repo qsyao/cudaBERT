@@ -86,10 +86,23 @@ void cuWelfordSum(
 template<typename T> __global__
 void cuApplySoftmax(
   T* tensor,
-  const int n1,
-  const int n2
+  const size_t n1,
+  const size_t n2,
+  int* mask, 
+  size_t batchsize
   ) 
 {
+  // Merge Mask add to Softmax
+  if(mask != nullptr){
+    for(size_t i1 = blockIdx.y; i1 < n1; i1 += gridDim.y){
+      for(size_t k = threadIdx.x; k < n2; k += blockDim.x){
+        size_t index = n2 * ( i1 / ( n1 / batchsize )) + k;
+        tensor[i1 * n2 + k] = tensor[i1 * n2 + k] + (1 - mask[index]) * -10000.0;
+      }
+    }
+    __syncthreads();
+  }
+
   // Assumptions:
   // 1) blockDim.x == warpSize
   // 2) Tensors are contiguous
@@ -112,23 +125,28 @@ void cuApplySoftmax(
 }
 
 template<typename T> 
-void op_SoftMax::forward(
+void op_SoftMax::forward(global_handle* handle,
                         T* tensor,
                         size_t n1,
-                        size_t n2
+                        size_t n2,
+                        int* mask
                         )
 {
     const dim3 threads(32,1,1);
     const dim3 blocks(1,min((long)65535,n1),1);
     cuApplySoftmax<<<blocks, threads, 0, handle->cal_stream>>>(
 		    tensor,
-		    n1,n2
+		    n1,n2,
+        mask,
+        handle->batchsize
             );
 }
 
 template 
 void op_SoftMax::forward<float>(
+    global_handle* handle,
     float* tensor,
     size_t n1,
-    size_t n2
+    size_t n2,
+    int* mask
     );
