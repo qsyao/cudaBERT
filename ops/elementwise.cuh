@@ -34,28 +34,4 @@ class op_Tanh : public op_kernel {
     void backward (T* tensor, size_t max_num) {}
 };
 
-class op_Mask_Add : public op_kernel{
-  /* 
-    Fuse Div in Mask
-  */
-  public:
-    op_Mask_Add(global_handle* handle)
-        : op_kernel(handle) {};
-
-    ~op_Mask_Add();
-
-    template <typename T>
-    void forward (
-                  T* tensor, 
-                  int* mask, 
-                  float number);
-
-    template <typename T>
-    void backward (
-                  T* tensor, 
-                  int* mask, 
-                  float number) {}
-
-};
-
 #endif

@@ -21,7 +21,9 @@ class Query_Key : public op_kernel {
 
     void forward(const float* query,
                 const float* key,
-                float* &output);
+                float number,
+                float* &output,
+                int* mask = nullptr);
 
     void backward() {}
 

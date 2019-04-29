@@ -56,9 +56,6 @@ void bert::init_ops(){
                                         handle);
         batched_linear.push_back(batchlinear);
 
-        op_Mask_Add* op_mask = new op_Mask_Add(handle);
-        mask.push_back(op_mask);
-
         op_Gelu* op_gelu = new op_Gelu(handle);
         gelu.push_back(op_gelu);
     }
@@ -172,9 +169,9 @@ void bert::BERT_Inference (
         query_key[i]->forward(
                             query,
                             key,
-                            query_key_gemm);
-
-        mask[i]->forward(query_key_gemm, attention_mask, 8.0);
+                            1.0 / 8.0,
+                            query_key_gemm,
+                            attention_mask);
         
         softmax[i]->forward(query_key_gemm,
                             batchsize * num_attention_heads * seq_length,

@@ -73,7 +73,6 @@ class bert {
         std::vector<op_Linear*> intermediate_linear;
         std::vector<op_BatchedLinear*> batched_linear;
         std::vector<op_SoftMax*> softmax;
-        std::vector<op_Mask_Add*> mask;
         std::vector<op_Gelu*> gelu;
         std::vector<Query_Key*> query_key;
         std::vector<Prob_Value*> prob_value;

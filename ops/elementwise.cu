@@ -35,51 +35,6 @@ template
 void copy_pooler<float>(float* &output, float* tensor, global_handle* handle);
 
 template <typename T>
-__global__ void mask (
-                    T* tensor, 
-                    int* mask, 
-                    float number, 
-                    size_t max_num, 
-                    size_t batchsize, 
-                    size_t seq_length) {
-    for(size_t i = blockIdx.x * blockDim.x + threadIdx.x ; i < max_num; i += gridDim.x * blockDim.x){
-        size_t index = seq_length * ( i / ( max_num / batchsize )) + i % seq_length;
-        if(mask != nullptr)
-            tensor[i] = tensor[i]/number + (1 - mask[index]) * -10000.0;
-        else
-            tensor[i] = tensor[i]/number;
-    } 
-    __syncthreads();
-}
-
-template <typename T>
-void op_Mask_Add::forward (
-                    T* tensor, 
-                    int* attention_mask, 
-                    float number) {
-    size_t seq_length = handle->seq_length;
-    size_t batchsize = handle->batchsize;
-    size_t num_attention_heads = handle->num_attention_heads;
-
-    dim3 threads(1024, 1, 1);
-    dim3 blocks(min( (long)65535, 
-            seq_length*seq_length*batchsize*num_attention_heads / 1024) + 1, 1, 1);
-    mask<<<blocks, threads, 0, handle->cal_stream>>>(
-                  tensor, 
-                  attention_mask, 
-                  number, 
-                  batchsize * seq_length * num_attention_heads * seq_length, 
-                  batchsize, 
-                  seq_length); 
-}
-
-template
-void op_Mask_Add::forward<float>(
-                            float* tensor, 
-                            int* mask, 
-                            float number);
-
-template <typename T>
 __global__ void gelu (T* tensor,  size_t max_num) {
     for(size_t i = blockIdx.x * blockDim.x + threadIdx.x ; i < max_num; i += gridDim.x * blockDim.x)
         tensor[i] = tensor[i] * 0.5f * (1.0f + erff(tensor[i] / sqrtf(2.0)));
