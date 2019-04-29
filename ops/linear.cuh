@@ -73,11 +73,12 @@ class op_BatchedLinear : public op_kernel{
                 bool is_prepare=false,
                 bool debug=false);
 
-    void backward();
+    template<typename T>
+    void backward(T *dout, T *grad_short_cut, size_t n, size_t k, size_t m);
 
     void update();
 
-  private:
+public:
     size_t n, k; // Shape of Weight: [n, k]
 
     float* query_kernel;
@@ -88,6 +89,19 @@ class op_BatchedLinear : public op_kernel{
     float* val_bias;
 
     float* batch_attentin_weights;
+public:
+    float* grad_query_input;
+    float* grad_query_kernel;
+    float* grad_query_bias;
+
+    float* grad_key_input;
+    float* grad_key_kernel;
+    float* grad_key_bias;
+
+    float* grad_val_input;
+    float* grad_val_kernel;
+    float* grad_val_bias;
+    float* grad_input;
 };
 
 #endif

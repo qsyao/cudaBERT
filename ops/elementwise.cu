@@ -1,5 +1,5 @@
 #include "elementwise.cuh"
-
+#include "linear.cuh"
 #include "math.h"
 
 template<typename T>
@@ -70,23 +70,23 @@ void copy_pooler_backward(T *&grad_input, T *dout, global_handle *handle) {
 template
 void copy_pooler_backward<float>(float *&grad_input, float *dout, global_handle *handle);
 
-template <typename T>
-__global__ void cuApplyShortCutBackward(T* dout1, T* dout2, size_t n) {
-    for(int i = blockIdx.x * blockDim.x + threadIdx.x ; i < n; i += gridDim.x * blockDim.x)
+template<typename T>
+__global__ void cuApplyShortCutBackward(T *dout1, T *dout2, size_t n) {
+    for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < n; i += gridDim.x * blockDim.x)
         dout1[i] += dout2[i];
     __syncthreads();
 }
 
-template <typename T>
-void short_cut_backward(T* dout1, T* dout2, size_t n, global_handle *handle) {
+template<typename T>
+void short_cut_backward(T *dout1, T *dout2, size_t n, global_handle *handle) {
     dim3 threads(1024, 1, 1);
-    dim3 blocks(min((long)65535, n/1024) + 1, 1, 1);
-    cuApplyShortCutBackward<T><<<blocks, threads, 0, handle->cal_stream>>>(
+    dim3 blocks(min((long) 65535, n / 1024) + 1, 1, 1);
+    cuApplyShortCutBackward<T> << < blocks, threads, 0, handle->cal_stream >> > (
             dout1, dout2, n);
 }
 
 template
-void short_cut_backward(float* dout1, float* dout2, size_t n, global_handle* handle);
+void short_cut_backward(float *dout1, float *dout2, size_t n, global_handle *handle);
 
 template<typename T>
 __device__ void BertTranspose(T *out,
@@ -137,12 +137,12 @@ void op_FusionTranspose::forward(T *&out,
                                  int num,
                                  bool muti_head) {
     out = handle->global_malloc_manage_float.get_new_head_point(
-            handle->batchsize * handle->seq_length * handle->hidden_size * 3);
+            handle->batchsize * handle->seq_length * handle->hidden_size * num);
     dim3 threads(handle->hidden_size, 1, 1);
     dim3 blocks(min(long(65535), handle->batchsize * handle->seq_length), 1, 1);
 
     FusionTranspose << < blocks, threads, 0, handle->cal_stream >> > (
-            out,
+                    out,
                     in,
                     num,
                     handle->batchsize,
@@ -158,6 +158,32 @@ void op_FusionTranspose::forward<float>(float *&out,
                                         float *in,
                                         int num,
                                         bool muti_head);
+
+template<typename T>
+void op_FusionTranspose::backward(T *dout,
+                                  int num,
+                                  bool muti_head) {
+    grad_input = handle->global_malloc_manage_float.get_new_head_point(
+            handle->batchsize * handle->seq_length * handle->hidden_size * num);
+    dim3 threads(handle->hidden_size, 1, 1);
+    dim3 blocks(min(long(65535), handle->batchsize * handle->seq_length), 1, 1);
+
+    FusionTranspose << < blocks, threads, 0, handle->cal_stream >> > (
+            grad_input,
+                    dout,
+                    num,
+                    handle->batchsize,
+                    handle->seq_length,
+                    handle->num_attention_heads,
+                    handle->batchsize * handle->seq_length,
+                    handle->batchsize * handle->seq_length * handle->hidden_size,
+                    !muti_head);
+}
+
+template
+void op_FusionTranspose::backward<float>(float *dout,
+                                         int num,
+                                         bool muti_head);
 
 template<typename T>
 __global__ void mask(
@@ -190,7 +216,7 @@ void op_Mask_Add::forward(
     dim3 blocks(min((long) 65535,
                     seq_length * seq_length * batchsize * num_attention_heads / 1024) + 1, 1, 1);
     mask << < blocks, threads, 0, handle->cal_stream >> > (
-            tensor,
+                    tensor,
                     attention_mask,
                     number,
                     batchsize * seq_length * num_attention_heads * seq_length,
@@ -203,6 +229,17 @@ void op_Mask_Add::forward<float>(
         float *tensor,
         int *mask,
         float number);
+
+template <typename T>
+void op_Mask_Add::backward(T *dout, size_t n, float number) {
+    dim3 threads(1024, 1, 1);
+    dim3 blocks(min((long) 65535, n / 1024) + 1, 1, 1);
+    grad_query_key_gemm = handle->global_malloc_manage_float.get_new_head_point(n);
+    MemoryCpyLinear<< < blocks, threads, 0, handle->cal_stream >> > (grad_query_key_gemm, dout, n , n, number);
+}
+
+template
+void op_Mask_Add::backward(float *dout, size_t n, float number);
 
 template<typename T>
 __global__ void gelu(T *tensor, size_t max_num) {
@@ -219,7 +256,7 @@ void op_Gelu::forward(T *tensor, size_t max_num) {
     dim3 threads(1024, 1, 1);
     dim3 blocks(min((long) 65535, (max_num + 1023) / 1024), 1, 1);
     gelu << < blocks, threads, 0, handle->cal_stream >> > (
-                    tensor,
+            tensor,
                     max_num);
 }
 

@@ -1,5 +1,6 @@
 #include "bert.cuh"
 #include "load_model.h"
+#include "../ops/linear.cuh"
 
 bert::bert(bool BERT_Large, int num_gpu, std::string dir) {
     checkCudaErrors(cudaSetDevice(num_gpu));
@@ -187,7 +188,7 @@ void bert::BERT_Inference(
                               false,
                               true);
 
-        mask[i]->forward(query_key_gemm, attention_mask, 8.0);
+        mask[i]->forward(query_key_gemm, attention_mask, sqrt(handle->hidden_size / handle->num_attention_heads));
 
         softmax[i]->forward(query_key_gemm,
                             batchsize * num_attention_heads * seq_length,
@@ -332,10 +333,13 @@ void bert::classify_inference_backward(int *classes, size_t num_classes) {
 
     //TODO: Memory resue
     for (int i = handle->num_hidden_layers - 1; i >= 0; i--) {
-
-        output_layernorm[i]->backward(copy_pooler_grad_input, handle->batchsize * handle->seq_length,
-                                      handle->hidden_size);
-
+        printf("Round:  %d\n", i);
+        if(i == handle->num_hidden_layers - 1)
+            output_layernorm[i]->backward(copy_pooler_grad_input, handle->batchsize * handle->seq_length,
+                                          handle->hidden_size);
+        else
+            output_layernorm[i]->backward(batched_linear[i+1]->grad_input, handle->batchsize * handle->seq_length,
+                                          handle->hidden_size);
 //        debug_tensor_gpu<float>(std::string("output_layernorm[i]->grad_input"), output_layernorm[i]->grad_input, 3, handle->hidden_size, handle->batchsize * handle->seq_length);
 
 //        debug_tensor_gpu<float>(std::string("output_linear[i]->kernel"), output_linear[i]->kernel, 3, handle->hidden_size, 100);
@@ -378,16 +382,123 @@ void bert::classify_inference_backward(int *classes, size_t num_classes) {
 
         attention_layernorm[i]->backward(intermediate_linear[i]->grad_input, handle->batchsize * handle->seq_length,
                                          handle->hidden_size);
-        debug_tensor_gpu<float>(std::string("attention_layernorm[i]->grad_input"), attention_layernorm[i]->grad_input, 3, handle->hidden_size, handle->batchsize * handle->seq_length);
+//        debug_tensor_gpu<float>(std::string("attention_layernorm[i]->grad_input"), attention_layernorm[i]->grad_input, 3, handle->hidden_size, handle->batchsize * handle->seq_length);
 
         attention_linear[i]->backward(attention_layernorm[i]->grad_input, handle->batchsize * handle->seq_length,
                                       handle->hidden_size, handle->hidden_size);
 
-        debug_tensor_gpu<float>(std::string("attention_linear[i]->grad_input"), attention_linear[i]->grad_input, 3, handle->hidden_size, handle->batchsize * handle->seq_length);
-        debug_tensor_gpu<float>(std::string("attention_linear[i]->grad_kernel"), attention_linear[i]->grad_kernel, 3, handle->hidden_size, handle->hidden_size);
-        debug_tensor_gpu<float>(std::string("attention_linear[i]->grad_bias"), attention_linear[i]->grad_bias, 3, handle->hidden_size, 1);
+//        debug_tensor_gpu<float>(std::string("attention_linear[i]->grad_input"), attention_linear[i]->grad_input, 3, handle->hidden_size, handle->batchsize * handle->seq_length);
+//        debug_tensor_gpu<float>(std::string("attention_linear[i]->grad_kernel"), attention_linear[i]->grad_kernel, 3, handle->hidden_size, handle->hidden_size);
+//        debug_tensor_gpu<float>(std::string("attention_linear[i]->grad_bias"), attention_linear[i]->grad_bias, 3, handle->hidden_size, 1);
 
-        break;
+        merge_heads[i]->backward(attention_linear[i]->grad_input, 1, false);
+//        debug_tensor_gpu<float>(std::string("merge_heads[i]->grad_input"), merge_heads[i]->grad_input, 3,
+//                                handle->seq_length * handle->hidden_size / handle->num_attention_heads,
+//                                handle->batchsize * handle->num_attention_heads);
+
+        head_value[i]->backward(merge_heads[i]->grad_input, handle->batchsize * handle->num_attention_heads,
+                                handle->seq_length, handle->seq_length,
+                                handle->hidden_size / handle->num_attention_heads);
+//        debug_tensor_gpu<float>(std::string("head_value[i]->grad_input"), head_value[i]->grad_input, 3,
+//                                handle->seq_length * handle->seq_length,
+//                                handle->batchsize * handle->num_attention_heads);
+//        debug_tensor_gpu<float>(std::string("head_value[i]->grad_kernel"), head_value[i]->grad_kernel, 3,
+//                                handle->seq_length * handle->hidden_size / handle->num_attention_heads,
+//                                handle->batchsize * handle->num_attention_heads);
+
+        softmax[i]->backward(head_value[i]->grad_input,
+                             handle->batchsize * handle->num_attention_heads * handle->seq_length,
+                             handle->seq_length);
+
+//        debug_tensor_gpu<float>(std::string("softmax[i]->grad_input"), softmax[i]->grad_input, 3,
+//                                handle->seq_length * handle->seq_length,
+//                                handle->batchsize * handle->num_attention_heads);
+
+        mask[i]->backward(softmax[i]->grad_input,
+                          handle->seq_length * handle->seq_length * handle->batchsize * handle->num_attention_heads,
+                          (float) 1.0 / sqrt(handle->hidden_size / handle->num_attention_heads));
+//        debug_tensor_gpu<float>(std::string("mask[i]->grad_query_key_gemm"), mask[i]->grad_query_key_gemm, 3,
+//                                handle->seq_length * handle->seq_length,
+//                                handle->batchsize * handle->num_attention_heads);
+
+        query_key[i]->backward(mask[i]->grad_query_key_gemm, handle->batchsize * handle->num_attention_heads,
+                               handle->seq_length,
+                               handle->hidden_size / handle->num_attention_heads,
+                               handle->seq_length, false, true);
+
+//        debug_tensor_gpu<float>(std::string("query_key[i]->grad_input"), query_key[i]->grad_input, 3,
+//                                handle->seq_length * handle->hidden_size / handle->num_attention_heads,
+//                                handle->batchsize * handle->num_attention_heads);
+//        debug_tensor_gpu<float>(std::string("query_key[i]->grad_kernel"), query_key[i]->grad_kernel, 3,
+//                                handle->seq_length * handle->hidden_size / handle->num_attention_heads,
+//                                handle->batchsize * handle->num_attention_heads);
+
+        size_t tot_length = handle->batchsize * handle->seq_length * handle->hidden_size;
+        float *dout = handle->global_malloc_manage_float.get_new_head_point(
+                tot_length * 3);
+
+//      query, key, value
+        {
+            dim3 threads(1024, 1, 1);
+            dim3 blocks(min((long) 65535, tot_length * 3 / 1024) + 1, 1, 1);
+            MemoryCpyLinear<float > << < blocks, threads, 0, handle->cal_stream >> > (
+                    dout, query_key[i]->grad_input, tot_length, tot_length);
+            MemoryCpyLinear<float> << < blocks, threads, 0, handle->cal_stream >> > (
+                    dout + tot_length, query_key[i]->grad_kernel, tot_length, tot_length);
+            MemoryCpyLinear<float> << < blocks, threads, 0, handle->cal_stream >> > (
+                    dout + 2 * tot_length, head_value[i]->grad_kernel, tot_length, tot_length);
+        }
+
+        merge_heads[i]->backward(dout, 3, true);
+
+//        debug_tensor_gpu<float>(std::string("grad_query"), merge_heads[i]->grad_input, 3,
+//                        handle->hidden_size,
+//                        handle->batchsize * handle->seq_length);
+//
+//        debug_tensor_gpu<float>(std::string("grad_key"), merge_heads[i]->grad_input + tot_length, 3,
+//                                handle->hidden_size,
+//                                handle->batchsize * handle->seq_length);
+//
+//        debug_tensor_gpu<float>(std::string("grad_value"), merge_heads[i]->grad_input + 2 * tot_length, 3,
+//                                handle->hidden_size,
+//                                handle->batchsize * handle->seq_length);
+
+        batched_linear[i]->backward(merge_heads[i]->grad_input, attention_layernorm[i]->grad_input, handle->batchsize * handle->seq_length, handle->hidden_size, handle->hidden_size);
+
+//        debug_tensor_gpu<float>(std::string("batched_linear[i]->grad_query_bias"), batched_linear[i]->grad_query_bias, 3,
+//                                handle->hidden_size, 1);
+//        debug_tensor_gpu<float>(std::string("batched_linear[i]->grad_key_kernel"), batched_linear[i]->grad_key_kernel, 3,
+//                                handle->hidden_size,
+//                                10);
+//        debug_tensor_gpu<float>(std::string("batched_linear[i]->grad_key_bias"), batched_linear[i]->grad_key_bias, 3,
+//                                handle->hidden_size, 1);
+
+//        debug_tensor_gpu<float>(std::string("batched_linear[i]->grad_val_kernel"), batched_linear[i]->grad_val_kernel, 3,
+//                                handle->hidden_size,
+//                                10);
+//        debug_tensor_gpu<float>(std::string("batched_linear[i]->grad_val_bias"), batched_linear[i]->grad_val_bias, 3,
+//                                handle->hidden_size, 1);
+//
+
+//        debug_tensor_gpu<float>(std::string("batched_linear[i]->query_kernel"), batched_linear[i]->query_kernel, 3,
+//                                handle->hidden_size,
+//                                10);
+
+//        debug_tensor_gpu<float>(std::string("batched_linear[i]->grad_key_input"), batched_linear[i]->grad_key_input, 3,
+//                                handle->hidden_size,
+//                                handle->batchsize * handle->seq_length);
+//
+//        debug_tensor_gpu<float>(std::string("batched_linear[i]->grad_query_input"), batched_linear[i]->grad_query_input, 3,
+//                                handle->hidden_size,
+//                                handle->batchsize * handle->seq_length);
+//
+//        debug_tensor_gpu<float>(std::string("batched_linear[i]->grad_val_input"), batched_linear[i]->grad_val_input, 3,
+//                                handle->hidden_size,
+//                                handle->batchsize * handle->seq_length);
+
+        debug_tensor_gpu<float>(std::string("batched_linear[i]->grad_input"), batched_linear[i]->grad_input, 3,
+                                handle->hidden_size,
+                                handle->batchsize * handle->seq_length);
     }
     return;
 }

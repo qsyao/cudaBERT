@@ -24,8 +24,14 @@ class op_FusionTranspose : public op_kernel{
                 T* in, 
                 int num, 
                 bool muti_head);
-    
-    void backward() {}
+
+    template <typename T>
+    void backward(T *dout,
+                 int num,
+                 bool muti_head);
+
+public:
+    float *grad_input;
 };
 
 class op_Gelu : public op_kernel {
@@ -79,10 +85,12 @@ class op_Mask_Add : public op_kernel{
 
     template <typename T>
     void backward (
-                  T* tensor, 
-                  int* mask, 
-                  float number) {}
+                T* tensor,
+                  size_t n,
+                  float number);
 
+public:
+    float *grad_query_key_gemm;
 };
 
 #endif
