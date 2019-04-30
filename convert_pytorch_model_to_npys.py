@@ -65,4 +65,4 @@ if __name__ == "__main__":
             new = npy
         numpy.save(args.output_dir + "/" + correct_name, new)
         print(correct_name, " shape : ", new.shape)
-    import ipdb; ipdb.set_trace()
+    #import ipdb; ipdb.set_trace()
