@@ -165,54 +165,34 @@ template<typename T>
 void
 linearBackward(T *dout, T *kernel, T *stored_input, T *grad_input, T *grad_kernel, T *grad_bias, size_t n, size_t k,
                size_t m, global_handle *handle) {
-    T *kernel_tranpose;
-    kernel_tranpose = handle->global_malloc_manage_float.get_new_head_point(k * m);
-    dim3 threads(1024, 1, 1);
-    dim3 blocks(min((long) 65535, (k * m + 1023) / 1024), 1, 1);
-    MemoryCpyLinearTranpose<T> << < blocks, threads, 0, handle->copy_stream >> >
-                                                        (kernel_tranpose, kernel, k, m, k * m);
-
-    cudaEventRecord(handle->copy_event, handle->copy_stream);
-    cudaStreamWaitEvent(handle->cal_stream, handle->copy_event, 0);
-
     std::vector <size_t> a_shape = {n, m};
-    std::vector <size_t> b_shape = {m, k};
+    std::vector <size_t> b_shape = {k, m};
     std::vector <size_t> c_shape = {n, k};
 
     matmul(handle->handle,
            dout,
            a_shape,
-           kernel_tranpose,
+           kernel,
            b_shape,
            grad_input,
            c_shape,
            false,
-           false,
+           true,
            1.0f,
            0.0f);
 
-    T *input_tranpose;
-    input_tranpose = handle->global_malloc_manage_float.get_new_head_point(n * k);
-    dim3 threads1(1024, 1, 1);
-    dim3 blocks1(min((long) 65535, (k * n + 1023) / 1024), 1, 1);
-    MemoryCpyLinearTranpose<T> << < blocks1, threads1, 0, handle->copy_stream >> >
-                                                          (input_tranpose, stored_input, n, k, n * k);
-
-    cudaEventRecord(handle->copy_event, handle->copy_stream);
-    cudaStreamWaitEvent(handle->cal_stream, handle->copy_event, 0);
-
-    a_shape = {k, n};
+    a_shape = {n, k};
     b_shape = {n, m};
     c_shape = {k, m};
 
     matmul(handle->handle,
-           input_tranpose,
+           stored_input,
            a_shape,
            dout,
            b_shape,
            grad_kernel,
            c_shape,
-           false,
+           true,
            false,
            1.0f,
            0.0f);
@@ -234,7 +214,6 @@ void op_Linear::update_weights(size_t n1, size_t n2) {
     }
 }
 
-// TODO:tranpose可以去掉
 template<typename T>
 void op_Linear::backward(T *dout, size_t n,
                          size_t k,

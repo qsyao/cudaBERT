@@ -154,6 +154,9 @@ void bert::BERT_Inference(
 
     embedding->forward(embedding_out, words, token_types, positions);
 
+    // Embedding output
+//    debug_tensor_gpu<float>(std::string("embedding_out"), embedding_out, 3, handle->hidden_size, handle->batchsize * handle->seq_length);
+
     float *tensor_layer = embedding_out, *temp;
 
     for (int i = 0; i < handle->num_hidden_layers; i++) {
@@ -291,7 +294,7 @@ float* bert::classify_inference(float* pooler_out, size_t num_classes){
 float* bert::classify_train(int *classes, float *pooler_out, size_t num_classes) {
     float *loss_out;
     float *classify_out;
-    
+
     classify_linear->forward(classify_out,
                              pooler_out,
                              handle->batchsize,
@@ -304,8 +307,8 @@ float* bert::classify_train(int *classes, float *pooler_out, size_t num_classes)
     checkCudaErrors(cudaMemcpyAsync(calsses_gpu, classes, handle->hidden_size * sizeof(int), cudaMemcpyHostToDevice));
 
     loss->forward(loss_out, classify_out, calsses_gpu, handle->batchsize, num_classes);
-    debug_tensor_gpu<float>(std::string("CrossEntropyLoss_output"), loss_out, handle->batchsize + 1,
-                            handle->batchsize + 1);
+//    debug_tensor_gpu<float>(std::string("CrossEntropyLoss_output"), loss_out, handle->batchsize + 1,
+//                            handle->batchsize + 1);
 
     float *dout_gpu;
     dout_gpu = handle->global_malloc_manage_float.get_new_head_point(1);
@@ -314,23 +317,22 @@ float* bert::classify_train(int *classes, float *pooler_out, size_t num_classes)
     checkCudaErrors(cudaMemcpyAsync(dout_gpu, dout, sizeof(float), cudaMemcpyHostToDevice));
 
     loss->backward(dout_gpu, handle->batchsize, num_classes, calsses_gpu);
-//    debug_tensor_gpu<float>(std::string("Grid CrossEntropyLoss_output"), loss->grad_input, num_classes, num_classes, handle->batchsize);
 
-    // debug_tensor_gpu<float>(std::string("classify_linear->stored_input"), classify_linear->stored_input, 768, 768, 2);
     classify_linear->backward(loss->grad_input, handle->batchsize,
                               handle->hidden_size,
                               num_classes);
+
 //    debug_tensor_gpu<float>(std::string("grad_input"), classify_linear->grad_input, 3, handle->hidden_size, handle->batchsize);
-//    debug_tensor_gpu<float>(std::string("grad_kernel"), classify_linear->grad_kernel, num_classes, num_classes, 10);
+//    debug_tensor_gpu<float>(std::string("grad_kernel"), classify_linear->grad_kernel, num_classes, num_classes, 3);
 //    debug_tensor_gpu<float>(std::string("grad_bias"), classify_linear->grad_bias, num_classes, num_classes);
 
     op_tanh->backward(classify_linear->grad_input, handle->batchsize * handle->hidden_size);
 //    debug_tensor_gpu<float>(std::string("op_tanh"), op_tanh->grad_input, 3, handle->hidden_size, handle->batchsize);
 
     pooler_linear->backward(op_tanh->grad_input, handle->batchsize, handle->hidden_size, handle->hidden_size);
-//    debug_tensor_gpu<float>(std::string("grad_input"), pooler_linear->grad_input, 10, handle->hidden_size, handle->batchsize);
-//    debug_tensor_gpu<float>(std::string("grad_kernel"), pooler_linear->grad_kernel, 10, handle->hidden_size, 2);
-//    debug_tensor_gpu<float>(std::string("grad_bias"), pooler_linear->grad_bias, 10, handle->hidden_size, handle->batchsize);
+//    debug_tensor_gpu<float>(std::string("grad_input"), pooler_linear->grad_input, 3, handle->hidden_size, handle->batchsize);
+//    debug_tensor_gpu<float>(std::string("grad_kernel"), pooler_linear->grad_kernel, 3, handle->hidden_size, 3);
+//    debug_tensor_gpu<float>(std::string("grad_bias"), pooler_linear->grad_bias, 3, handle->hidden_size, handle->batchsize);
 
     float *copy_pooler_grad_input;
     copy_pooler_backward(copy_pooler_grad_input, pooler_linear->grad_input, handle);
@@ -345,10 +347,13 @@ float* bert::classify_train(int *classes, float *pooler_out, size_t num_classes)
         else
             output_layernorm[i]->backward(batched_linear[i + 1]->grad_input, handle->batchsize * handle->seq_length,
                                           handle->hidden_size);
-//        debug_tensor_gpu<float>(std::string("output_layernorm[i]->grad_input"), output_layernorm[i]->grad_input, 3, handle->hidden_size, handle->batchsize * handle->seq_length);
 
-//        debug_tensor_gpu<float>(std::string("output_linear[i]->kernel"), output_linear[i]->kernel, 3, handle->hidden_size, 100);
-//        debug_tensor_gpu<float>(std::string("output_linear[i]->bias"), output_linear[i]->bias, 3, handle->hidden_size, 1);
+//            debug_tensor_gpu<float>(std::string("output_layernorm[i]->grad_input"), output_layernorm[i]->grad_input, 3,
+//                                    handle->hidden_size, handle->batchsize * handle->seq_length);
+//            debug_tensor_gpu<float>(std::string("output_linear[i]->kernel"), output_linear[i]->kernel, 3,
+//                                    handle->hidden_size, 3);
+//            debug_tensor_gpu<float>(std::string("output_linear[i]->bias"), output_linear[i]->bias, 3,
+//                                    handle->hidden_size, 1);
 
         output_linear[i]->backward(output_layernorm[i]->grad_input, handle->batchsize * handle->seq_length,
                                    handle->intermediate_size, handle->hidden_size);
