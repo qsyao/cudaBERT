@@ -117,7 +117,6 @@ void op_Batch_Matmul::backward(T *dout, size_t batchsize, size_t n, size_t k, si
     }
     else {
         grad_kernel = handle->global_malloc_manage_float.get_new_head_point(batchsize * k * m);
-//        handle->global_malloc_manage_float.record_layer_start();
         T* tmp_grad_kernel = handle->global_malloc_manage_float.get_new_head_point(batchsize * k * m);
         matmul(handle->handle,
                stored_input,
@@ -135,8 +134,6 @@ void op_Batch_Matmul::backward(T *dout, size_t batchsize, size_t n, size_t k, si
         dim3 blocks1(min((long) 65535, (batchsize * k * m + 1023) / 1024), 1, 1);
         MemoryCpyLinearTranpose<T> << < blocks1, threads1, 0, handle->cal_stream >> >
                                                               (grad_kernel, tmp_grad_kernel, batchsize, k, m, m * k);
-
-//        handle->global_malloc_manage_float.reuse_layer_mem();
     }
 
 }

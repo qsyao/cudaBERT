@@ -20,8 +20,8 @@ int* filling_inputs(int* tensor, int seq_length, int start_length, int batchsize
 
 extern "C"{
 
-bert* init_model(bool large = false, int num_gpu=0, char dir[] = ""){
-    bert* ret = new bert(large, num_gpu, dir);
+bert* init_model(bool large = false, int num_gpu=0, std::string dir = "", float lr = 0.000001, std::string optim = "sgd", bool optimRunningTime = true){
+    bert* ret = new bert(large, num_gpu, dir, lr, optim, optimRunningTime);
     return ret;
 }
 
@@ -40,7 +40,25 @@ Retval Cuda_Inference(bert* model,
     return model->ret;
 }
 
-void cuda_classify (bert* model,
+void Cuda_Classify (bert* model,
+                    float* output,
+                    int* words,
+                    int* token_types,
+                    int batchsize,
+                    int seq_length,
+                    int num_classes,
+                    int* attention_mask){
+    model->BERT_Inference(  words,
+                            token_types,
+                            batchsize,
+                            seq_length,
+                            attention_mask);
+    float * output_gpu;
+    output_gpu = model->classify_inference(model->ret.pooled_output, num_classes);
+    model->get_gpu_result(output, output_gpu, batchsize*num_classes);
+}
+
+void cuda_classify_train (bert* model,
                     float* output,
                     int* words,
                     int* token_types,
@@ -55,9 +73,7 @@ void cuda_classify (bert* model,
                             seq_length,
                             attention_mask);
     float * output_gpu;
-    output_gpu = model->classify_inference(classes, model->ret.pooled_output, num_classes);
-
-    model->classify_inference_backward(classes, num_classes);
+    output_gpu = model->classify_train(classes, model->ret.pooled_output, num_classes);
 }
 
 void test(int batchsize, int seq_length, int nIter, bool base, int num_gpu){
@@ -108,10 +124,11 @@ void test(int batchsize, int seq_length, int nIter, bool base, int num_gpu){
 
     double total_time = 0;
     for(int i = 0; i < nIter; i++){
+        printf("Round: %d\n",i);
         float it_time;
         cudaEventRecord(start);
         float * output;
-        cuda_classify(
+        cuda_classify_train(
                 model,
                 output,
                 test_word_id,

@@ -25,6 +25,7 @@ public:
 
 public:
     float *kernel;
+
     float *grad_input;
     float *grad_kernel;
 };

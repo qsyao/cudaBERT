@@ -20,8 +20,8 @@ class op_kernel {
 
     float* stored_input;
     float* stored_output;
-  
-  protected:
+
+public:
     op_kernel(global_handle* handle) 
                           : handle(handle) {}
 };

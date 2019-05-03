@@ -3,6 +3,7 @@
 
 #include "op_kernel.cuh"
 #include "../utils/common.h"
+#include "../optim/optim.cuh"
 
 class op_LayerNorm : public op_kernel{
   public:
@@ -34,7 +35,7 @@ class op_LayerNorm : public op_kernel{
     template<typename T>
     void backward(T *dout, size_t n1, size_t n2);
 
-    void update_weights();
+    void update_weights(size_t n);
 
   public:
     size_t warpsize;

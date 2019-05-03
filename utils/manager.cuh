@@ -19,7 +19,7 @@
 extern "C"
 class global_handle {
     public:
-        global_handle (bool BERT_Large=false, std::string dir = "");
+        global_handle (bool BERT_Large=false, std::string dir = "", float lr = 0.000001, std::string optim = "sgd", bool optimRunningTime = true);
 
         ~global_handle();
 
@@ -50,6 +50,9 @@ class global_handle {
         size_t seq_length;
         size_t max_seq_length = 512;
         size_t max_mem_size = 200 * 512;
+        float learning_rate = 0.000001;
+        std::string optim_method = "sgd";
+        bool optim_running_time = true;
 
         malloc_manage<float> global_malloc_manage_float;
         malloc_manage<int> global_malloc_manage_int;

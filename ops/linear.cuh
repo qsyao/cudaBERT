@@ -3,6 +3,7 @@
 
 #include "op_kernel.cuh"
 #include "../utils/common.h"
+#include "../optim/optim.cuh"
 
 template <typename T>
 __global__ void MemoryCpyLinear(T* out, T* in, size_t max, size_t warpsize, float mul = 1.0) ;
@@ -38,7 +39,7 @@ class op_Linear : public op_kernel{
                   size_t k,
                   size_t m);
 
-    void update();
+    void update_weights(size_t n1, size_t n2);
 
 public:
     size_t n, k; // Shape of Weight: [n, k]
@@ -76,7 +77,7 @@ class op_BatchedLinear : public op_kernel{
     template<typename T>
     void backward(T *dout, T *grad_short_cut, size_t n, size_t k, size_t m);
 
-    void update();
+    void update_weights(size_t n1, size_t n2);
 
 public:
     size_t n, k; // Shape of Weight: [n, k]

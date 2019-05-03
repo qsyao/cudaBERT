@@ -2,9 +2,9 @@
 #include "load_model.h"
 #include "../ops/linear.cuh"
 
-bert::bert(bool BERT_Large, int num_gpu, std::string dir) {
+bert::bert(bool BERT_Large, int num_gpu, std::string dir, float lr, std::string optim, bool optimRunningTime) {
     checkCudaErrors(cudaSetDevice(num_gpu));
-    handle = new global_handle(BERT_Large, dir);
+    handle = new global_handle(BERT_Large, dir, lr, optim, optimRunningTime);
     init_ops();
 }
 
@@ -275,10 +275,23 @@ void bert::BERT_Inference(
     ret.pooled_output = pooler_out;
 }
 
-float *bert::classify_inference(int *classes, float *pooler_out, size_t num_classes) {
+float* bert::classify_inference(float* pooler_out, size_t num_classes){
+    float* classify_out;
+    classify_linear->forward(classify_out,
+                             pooler_out,
+                             handle->batchsize,
+                             handle->hidden_size,
+                             num_classes);
+
+    classify_softmax->forward(classify_out, handle->batchsize, num_classes);
+
+    return classify_out;
+}
+
+float* bert::classify_train(int *classes, float *pooler_out, size_t num_classes) {
     float *loss_out;
     float *classify_out;
-//    debug_tensor_gpu<float>(std::string("pooler_out"), pooler_out, handle->hidden_size, handle->hidden_size, 1);
+    
     classify_linear->forward(classify_out,
                              pooler_out,
                              handle->batchsize,
@@ -293,14 +306,6 @@ float *bert::classify_inference(int *classes, float *pooler_out, size_t num_clas
     loss->forward(loss_out, classify_out, calsses_gpu, handle->batchsize, num_classes);
     debug_tensor_gpu<float>(std::string("CrossEntropyLoss_output"), loss_out, handle->batchsize + 1,
                             handle->batchsize + 1);
-
-    return loss_out;
-}
-
-void bert::classify_inference_backward(int *classes, size_t num_classes) {
-    int *calsses_gpu;
-    calsses_gpu = handle->global_malloc_manage_int.get_new_head_point(handle->hidden_size);
-    checkCudaErrors(cudaMemcpyAsync(calsses_gpu, classes, handle->hidden_size * sizeof(int), cudaMemcpyHostToDevice));
 
     float *dout_gpu;
     dout_gpu = handle->global_malloc_manage_float.get_new_head_point(1);
@@ -333,12 +338,12 @@ void bert::classify_inference_backward(int *classes, size_t num_classes) {
 
     //TODO: Memory resue
     for (int i = handle->num_hidden_layers - 1; i >= 0; i--) {
-        printf("Round:  %d\n", i);
-        if(i == handle->num_hidden_layers - 1)
+//        printf("Round:  %d\n", i);
+        if (i == handle->num_hidden_layers - 1)
             output_layernorm[i]->backward(copy_pooler_grad_input, handle->batchsize * handle->seq_length,
                                           handle->hidden_size);
         else
-            output_layernorm[i]->backward(batched_linear[i+1]->grad_input, handle->batchsize * handle->seq_length,
+            output_layernorm[i]->backward(batched_linear[i + 1]->grad_input, handle->batchsize * handle->seq_length,
                                           handle->hidden_size);
 //        debug_tensor_gpu<float>(std::string("output_layernorm[i]->grad_input"), output_layernorm[i]->grad_input, 3, handle->hidden_size, handle->batchsize * handle->seq_length);
 
@@ -441,7 +446,7 @@ void bert::classify_inference_backward(int *classes, size_t num_classes) {
         {
             dim3 threads(1024, 1, 1);
             dim3 blocks(min((long) 65535, tot_length * 3 / 1024) + 1, 1, 1);
-            MemoryCpyLinear<float > << < blocks, threads, 0, handle->cal_stream >> > (
+            MemoryCpyLinear<float> << < blocks, threads, 0, handle->cal_stream >> > (
                     dout, query_key[i]->grad_input, tot_length, tot_length);
             MemoryCpyLinear<float> << < blocks, threads, 0, handle->cal_stream >> > (
                     dout + tot_length, query_key[i]->grad_kernel, tot_length, tot_length);
@@ -463,7 +468,8 @@ void bert::classify_inference_backward(int *classes, size_t num_classes) {
 //                                handle->hidden_size,
 //                                handle->batchsize * handle->seq_length);
 
-        batched_linear[i]->backward(merge_heads[i]->grad_input, attention_layernorm[i]->grad_input, handle->batchsize * handle->seq_length, handle->hidden_size, handle->hidden_size);
+        batched_linear[i]->backward(merge_heads[i]->grad_input, attention_layernorm[i]->grad_input,
+                                    handle->batchsize * handle->seq_length, handle->hidden_size, handle->hidden_size);
 
 //        debug_tensor_gpu<float>(std::string("batched_linear[i]->grad_query_bias"), batched_linear[i]->grad_query_bias, 3,
 //                                handle->hidden_size, 1);
@@ -496,9 +502,9 @@ void bert::classify_inference_backward(int *classes, size_t num_classes) {
 //                                handle->hidden_size,
 //                                handle->batchsize * handle->seq_length);
 
-        debug_tensor_gpu<float>(std::string("batched_linear[i]->grad_input"), batched_linear[i]->grad_input, 3,
-                                handle->hidden_size,
-                                handle->batchsize * handle->seq_length);
+//        debug_tensor_gpu<float>(std::string("batched_linear[i]->grad_input"), batched_linear[i]->grad_input, 3,
+//                                handle->hidden_size,
+//                                handle->batchsize * handle->seq_length);
     }
-    return;
+    return loss_out;
 }

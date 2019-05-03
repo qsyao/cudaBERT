@@ -1,7 +1,7 @@
 #include "manager.cuh"
 #include "load_model.h"
 
-global_handle::global_handle (bool BERT_Large, std::string dir) {
+global_handle::global_handle (bool BERT_Large, std::string dir, float lr, std::string optim, bool optimRunningTime) {
     if(BERT_Large){
         dir_npy = "model_npy/large_uncased";
         hidden_size = 1024;
@@ -12,6 +12,9 @@ global_handle::global_handle (bool BERT_Large, std::string dir) {
     }
     if (dir != "") 
         dir_npy = dir;
+    learning_rate = lr;
+    optim_method = optim;
+    optim_running_time = optimRunningTime;
     load_from_dir_to_GPU(dir_npy, tts);
     checkError(cublasCreate(&handle), "cublasCreate() error!\n");
     init_cudamemory(max_mem_size / max_seq_length, max_seq_length);

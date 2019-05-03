@@ -35,6 +35,7 @@ set(SOURCE_FILES
         utils/common.cc
         utils/load_model.cc
         utils/manager.cu
+        optim/optim.cu
         ops/elementwise.cu
         ops/embedding.cu
         ops/layernorm.cu

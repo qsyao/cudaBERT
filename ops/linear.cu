@@ -226,6 +226,14 @@ linearBackward(T *dout, T *kernel, T *stored_input, T *grad_input, T *grad_kerne
                     m);
 }
 
+
+void op_Linear::update_weights(size_t n1, size_t n2) {
+    if (handle->optim_method == "sgd") {
+        apply_sgd_running_time(kernel, grad_kernel, n1, handle);
+        apply_sgd_running_time(bias, grad_bias, n2, handle);
+    }
+}
+
 // TODO:tranpose可以去掉
 template<typename T>
 void op_Linear::backward(T *dout, size_t n,
@@ -235,6 +243,9 @@ void op_Linear::backward(T *dout, size_t n,
     grad_kernel = handle->global_malloc_manage_float.get_new_head_point(k * m);
     grad_bias = handle->global_malloc_manage_float.get_new_head_point(m);
     linearBackward(dout, kernel, stored_input, grad_input, grad_kernel, grad_bias, n, k, m, handle);
+
+    if (handle->optim_running_time)
+        update_weights(k * m, m);
 }
 
 template
@@ -344,8 +355,20 @@ void op_BatchedLinear::forward<float>(
         bool is_prepare,
         bool debug);
 
+void op_BatchedLinear::update_weights(size_t n1, size_t n2) {
+    if (handle->optim_method == "sgd") {
+        apply_sgd_running_time(query_kernel, grad_query_kernel, n1, handle);
+        apply_sgd_running_time(key_kernel, grad_key_kernel, n1, handle);
+        apply_sgd_running_time(val_kernel, grad_val_kernel, n1, handle);
+
+        apply_sgd_running_time(query_bias, grad_query_bias, n2, handle);
+        apply_sgd_running_time(key_bias, grad_key_bias, n2, handle);
+        apply_sgd_running_time(val_bias, grad_val_bias, n2, handle);
+    }
+}
+
 template<typename T>
-void op_BatchedLinear::backward(T *dout,  T *grad_short_cut, size_t n, size_t k, size_t m) {
+void op_BatchedLinear::backward(T *dout, T *grad_short_cut, size_t n, size_t k, size_t m) {
     grad_query_input = handle->global_malloc_manage_float.get_new_head_point(n * k);
     grad_query_kernel = handle->global_malloc_manage_float.get_new_head_point(k * m);
     grad_query_bias = handle->global_malloc_manage_float.get_new_head_point(m);
@@ -369,6 +392,9 @@ void op_BatchedLinear::backward(T *dout,  T *grad_short_cut, size_t n, size_t k,
     grad_input = handle->global_malloc_manage_float.get_new_head_point(n * k);
     cuApplyBatchLinearGradInput<T> << < blocks, threads, 0, handle->cal_stream >> > (
             grad_input, grad_query_input, grad_key_input, grad_val_input, grad_short_cut, n * k);
+
+    if (handle->optim_running_time)
+        update_weights(k * m, m);
 }
 
 template

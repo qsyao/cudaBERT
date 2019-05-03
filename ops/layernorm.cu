@@ -549,6 +549,13 @@ __global__ void cuComputeGradInput(
     }
 }
 
+void op_LayerNorm::update_weights(size_t n) {
+    if (handle->optim_method == "sgd") {
+        apply_sgd_running_time(gamma, grad_gamma, n, handle);
+        apply_sgd_running_time(beta, grad_beta, n, handle);
+    }
+}
+
 template<typename T>
 void op_LayerNorm::backward(T *dout, size_t n1, size_t n2) {
     grad_input = handle->global_malloc_manage_float.get_new_head_point(n1 * n2);
@@ -600,6 +607,9 @@ void op_LayerNorm::backward(T *dout, size_t n1, size_t n2) {
                     T(epsilon),
                     gamma,
                     grad_input);
+
+    if (handle->optim_running_time)
+        update_weights(n1);
 }
 
 template
