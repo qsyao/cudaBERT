@@ -41,8 +41,10 @@ __global__ void cuApplyCrossEntropyLossAverage(T *output, const int n1) {
 template <typename T, typename U>
 void op_CrossEntropyLoss::forward(T* &output, T *input, U *classes,
                                   size_t n1, size_t n2) {
-    stored_input = handle->global_malloc_manage_float.get_new_head_point(n1 * n2);
-    checkCudaErrors(cudaMemcpyAsync(stored_input, input, n1 * n2 * sizeof(float), cudaMemcpyDeviceToDevice));
+    if(handle->is_train) {
+        stored_input = handle->global_malloc_manage_float.get_new_head_point(n1 * n2);
+        checkCudaErrors(cudaMemcpyAsync(stored_input, input, n1 * n2 * sizeof(float), cudaMemcpyDeviceToDevice));
+    }
 
     output = handle->global_malloc_manage_float.get_new_head_point(n1+1);
     const dim3 threads(32, 1, 1);

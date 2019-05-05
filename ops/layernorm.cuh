@@ -26,7 +26,7 @@ class op_LayerNorm : public op_kernel{
     /* 
         Fuse op_Add in LayerNorm For BERT Only
     */
-                T* output,
+                T* &output,
                 T* input,
                 size_t n1,
                 size_t n2,

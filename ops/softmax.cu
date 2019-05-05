@@ -123,8 +123,10 @@ void op_SoftMax::forward(
             tensor,
                     n1, n2
     );
-    stored_output = handle->global_malloc_manage_float.get_new_head_point(n1 * n2);
-    checkCudaErrors(cudaMemcpyAsync(stored_output, tensor, n1 * n2 * sizeof(float), cudaMemcpyDeviceToDevice));
+    if(handle->is_train) {
+        stored_output = handle->global_malloc_manage_float.get_new_head_point(n1 * n2);
+        checkCudaErrors(cudaMemcpyAsync(stored_output, tensor, n1 * n2 * sizeof(float), cudaMemcpyDeviceToDevice));
+    }
 }
 
 template

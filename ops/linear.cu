@@ -82,8 +82,9 @@ void op_Linear::forward(
         size_t m,
         bool is_prepare,
         bool debug) {
-    stored_input = handle->global_malloc_manage_float.get_new_head_point(n * k);
-    checkCudaErrors(cudaMemcpyAsync(stored_input, input, n * k * sizeof(float), cudaMemcpyDeviceToDevice));
+    if(handle->is_train) {
+        stored_input = input;
+    }
 
     output = handle->global_malloc_manage_float.get_new_head_point(n * m);
 
@@ -243,9 +244,9 @@ void op_BatchedLinear::forward(
         bool is_prepare,
         bool debug) {
     output = handle->global_malloc_manage_float.get_new_head_point(3 * n * m);
-
-    stored_input = handle->global_malloc_manage_float.get_new_head_point(n * k);
-    checkCudaErrors(cudaMemcpyAsync(stored_input, input, n * k * sizeof(float), cudaMemcpyDeviceToDevice));
+    if(handle->is_train) {
+        stored_input = input;
+    }
 
     //dim3 threads(512, 1, 1);
     //dim3 blocks(max(3*n*m, 3*k*m)/512 + 1, 1, 1);

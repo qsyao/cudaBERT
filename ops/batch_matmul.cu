@@ -11,14 +11,10 @@ void op_Batch_Matmul::forward(size_t batchsize,
                               T *&output,
                               bool transpose_a,
                               bool transpose_b) {
-    stored_input = handle->global_malloc_manage_float.get_new_head_point(batchsize * n * k);
-    checkCudaErrors(
-            cudaMemcpyAsync(stored_input, input_a, batchsize * n * k * sizeof(float), cudaMemcpyDeviceToDevice));
-
-    kernel = handle->global_malloc_manage_float.get_new_head_point(batchsize * k * m);
-    checkCudaErrors(cudaMemcpyAsync(kernel, input_b, batchsize * k * m * sizeof(float), cudaMemcpyDeviceToDevice));
-
-//    debug_tensor_gpu<float>(std::string("kernel"), kernel, 3, k*m, batchsize);
+    if(handle->is_train) {
+        stored_input = input_a;
+        kernel = input_b;
+    }
 
     output = handle->global_malloc_manage_float.get_new_head_point(
             batchsize * n * m);

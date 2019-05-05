@@ -159,7 +159,8 @@ void cuApplyLayerNorm(
         for (int i1 = blockIdx.y; i1 < n1; i1 += gridDim.y) {
             for (int i = threadIdx.y * blockDim.x + threadIdx.x; i < n2; i += blockDim.y * blockDim.x) {
                 vals[i + i1 * n2] += merge_add[i + i1 * n2];
-                stored_input[i + i1 * n2] = vals[i + i1 * n2];
+                if(stored_input != nullptr)
+                    stored_input[i + i1 * n2] = vals[i + i1 * n2];
             }
         }
         __syncthreads();
@@ -186,26 +187,35 @@ void cuApplyLayerNorm(
                 ovals[i] = static_cast<T>(c_invvar * (curr - mu));
             }
         }
-        if (threadIdx.x == 0 && threadIdx.y == 0) {
-            mean[i1] = mu;
-            invvar[i1] = c_invvar;
+        if(mean != nullptr) {
+            if (threadIdx.x == 0 && threadIdx.y == 0) {
+                mean[i1] = mu;
+                invvar[i1] = c_invvar;
+            }
         }
     }
 }
 
 template<typename T>
 void op_LayerNorm::forward(
-        T *output,
+        T *&output,
         T *input,
         size_t n1,
         size_t n2,
         T *merge_add
 ) {
-    mean = handle->global_malloc_manage_float.get_new_head_point(n1);
-    invvar = handle->global_malloc_manage_float.get_new_head_point(n1);
-    // 经过了残差连接
-    stored_input = handle->global_malloc_manage_float.get_new_head_point(n1 * n2);
-
+    if(handle->is_train) {
+        mean = handle->global_malloc_manage_float.get_new_head_point(n1);
+        invvar = handle->global_malloc_manage_float.get_new_head_point(n1);
+        // 经过了残差连接
+        stored_input = handle->global_malloc_manage_float.get_new_head_point(n1 * n2);
+        output = handle->global_malloc_manage_float.get_new_head_point(n1 * n2);
+    }
+    else {
+        mean = nullptr;
+        invvar = nullptr;
+        stored_input = nullptr;
+    }
     // auto stream TODO(): Muti-Stream 
     const dim3 threads(32, 4, 1);
     const dim3 blocks(1, min((long) 65535, n1), 1);
@@ -224,7 +234,7 @@ void op_LayerNorm::forward(
 
 template
 void op_LayerNorm::forward<float>(
-        float *output,
+        float *&output,
         float *input,
         size_t n1,
         size_t n2,

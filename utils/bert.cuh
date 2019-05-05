@@ -21,7 +21,7 @@
 extern "C"
 class bert {
     public:
-        bert (bool BERT_Large=false, int num_gpu = 0, std::string dir = "", float lr = 0.000001, std::string optim = "sgd", bool optimRunningTime = true);
+        bert (bool BERT_Large=false, int num_gpu = 0, std::string dir = "", bool is_train = false, float lr = 0.000001, std::string optim = "sgd", bool optimRunningTime = true);
         //TODO　Muti_GPU
 
         ~bert(){
@@ -43,6 +43,13 @@ class bert {
                             int* attention_mask=nullptr);
 
         float* classify_inference(float* pooler_out, size_t num_classes);
+
+        void BERT_train (
+                int* words,
+                int* token_types,
+                size_t batchsize,
+                size_t seq_length,
+                int* attention_mask=nullptr);
 
         float* classify_train(int* classes, float* pooler_out, size_t num_classes);
 

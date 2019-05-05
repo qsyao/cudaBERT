@@ -250,8 +250,10 @@ __global__ void gelu(T *tensor, size_t max_num) {
 
 template<typename T>
 void op_Gelu::forward(T *tensor, size_t max_num) {
-    stored_input = handle->global_malloc_manage_float.get_new_head_point(max_num);
-    checkCudaErrors(cudaMemcpyAsync(stored_input, tensor, max_num * sizeof(float), cudaMemcpyDeviceToDevice));
+    if(handle->is_train) {
+        stored_input = handle->global_malloc_manage_float.get_new_head_point(max_num);
+        checkCudaErrors(cudaMemcpyAsync(stored_input, tensor, max_num * sizeof(float), cudaMemcpyDeviceToDevice));
+    }
 
     dim3 threads(1024, 1, 1);
     dim3 blocks(min((long) 65535, (max_num + 1023) / 1024), 1, 1);
@@ -296,8 +298,10 @@ __global__ void Tanh(T *tensor, size_t max_num) {
 
 template<typename T>
 void op_Tanh::forward(T *tensor, size_t max_num) {
-    stored_input = handle->global_malloc_manage_float.get_new_head_point(max_num);
-    checkCudaErrors(cudaMemcpyAsync(stored_input, tensor, max_num * sizeof(float), cudaMemcpyDeviceToDevice));
+    if(handle->is_train) {
+        stored_input = handle->global_malloc_manage_float.get_new_head_point(max_num);
+        checkCudaErrors(cudaMemcpyAsync(stored_input, tensor, max_num * sizeof(float), cudaMemcpyDeviceToDevice));
+    }
 
     dim3 threads(1024, 1, 1);
     dim3 blocks(min((long) 65535, max_num / 1024) + 1, 1, 1);

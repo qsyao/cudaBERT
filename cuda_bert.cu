@@ -20,8 +20,8 @@ int* filling_inputs(int* tensor, int seq_length, int start_length, int batchsize
 
 extern "C"{
 
-bert* init_model(bool large = false, int num_gpu=0, std::string dir = "", float lr = 0.000001, std::string optim = "sgd", bool optimRunningTime = true){
-    bert* ret = new bert(large, num_gpu, dir, lr, optim, optimRunningTime);
+bert* init_model(bool large = false, int num_gpu=0, std::string dir = "", bool is_train = false, float lr = 0.000001, std::string optim = "sgd", bool optimRunningTime = true){
+    bert* ret = new bert(large, num_gpu, dir, is_train, lr, optim, optimRunningTime);
     return ret;
 }
 
@@ -67,17 +67,102 @@ void cuda_classify_train (bert* model,
                     int seq_length,
                     int num_classes,
                     int* attention_mask){
-    model->BERT_Inference(  words,
-                            token_types,
-                            batchsize,
-                            seq_length,
-                            attention_mask);
+    model->BERT_train(words,
+                      token_types,
+                      batchsize,
+                      seq_length,
+                      attention_mask);
     float * output_gpu;
     output_gpu = model->classify_train(classes, model->ret.pooled_output, num_classes);
 }
 
-void test(int batchsize, int seq_length, int nIter, bool base, int num_gpu){
+void test_inference(int batchsize, int seq_length, int nIter, bool base, int num_gpu){
     bert* model = init_model(base, num_gpu);
+
+    int test_word_id_seed[11] = {2040, 2001, 3958, 27227, 1029, 3958, 103,
+                                 2001, 1037, 13997, 11510};
+    int test_token_type_id_seed[11] = {0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1};
+
+    int attention_mask[11] = {1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0};
+    int classes[4] = {1, 1, 1, 1};
+
+    int *test_word_id, *test_token_type_id, *test_attention_mask;
+    test_word_id = filling_inputs(test_word_id_seed, seq_length, 11, batchsize);
+    test_token_type_id = filling_inputs(test_token_type_id_seed, seq_length, 11, batchsize);
+    test_attention_mask = filling_inputs(attention_mask, seq_length, 11, batchsize);
+    std::cout<<" Seq_length : "<<seq_length<<std::endl;
+    std::cout<<" Batchsize : "<<batchsize<<std::endl;
+
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+
+    float* output_pinned;
+    checkCudaErrors(cudaMallocHost((void **)&output_pinned,
+                                   (1024) * model->handle->hidden_size * sizeof(float)));
+
+    //Warm Up
+    for(int i = 0; i < 10; i++){
+        model->BERT_Inference(
+                test_word_id,
+                test_token_type_id,
+                batchsize,
+                seq_length,
+                test_attention_mask);
+        model->get_gpu_result(output_pinned,
+                              model->ret.pooled_output,
+                              model->handle->batchsize * model->handle->hidden_size);
+
+        if ( i == 0 ) {
+            debug_tensor<float>(std::string("unit_test"),
+                                output_pinned,
+                                10,
+                                model->handle->hidden_size,
+                                max(model->handle->batchsize/10, (long)1));
+        }
+    }
+
+    double total_time = 0;
+    for(int i = 0; i < nIter; i++){
+        float it_time;
+        cudaEventRecord(start);
+        float * output;
+        // cuda_classify(
+        //         model,
+        //         output,
+        //         test_word_id,
+        //         test_token_type_id,
+        //         classes,
+        //         batchsize,
+        //         seq_length,
+        //         2,
+        //         test_attention_mask
+        // );
+        model->BERT_Inference(
+                test_word_id,
+                test_token_type_id,
+                batchsize,
+                seq_length,
+                test_attention_mask);
+
+        model->get_gpu_result(output_pinned,
+                              model->ret.pooled_output,
+                              model->handle->batchsize * model->handle->hidden_size);
+
+        cudaEventRecord(stop);
+        cudaEventSynchronize(stop);
+        cudaEventElapsedTime(&it_time, start, stop);
+        total_time += it_time;
+    }
+
+    delete model;
+
+    double dSeconds = total_time/(double)nIter;
+    printf("Time= %.2f(ms)\n", dSeconds);
+}
+
+void test_train(int batchsize, int seq_length, int nIter, bool base, int num_gpu){
+    bert* model = init_model(base, num_gpu, "", true);
 
     int test_word_id_seed[11] = {2040, 2001, 3958, 27227, 1029, 3958, 103,
                                2001, 1037, 13997, 11510};
@@ -139,16 +224,6 @@ void test(int batchsize, int seq_length, int nIter, bool base, int num_gpu){
                 2,
                 test_attention_mask
         );
-//        model->BERT_Inference(
-//                            test_word_id,
-//                            test_token_type_id,
-//                            batchsize,
-//                            seq_length,
-//                            test_attention_mask);
-//
-//        model->get_gpu_result(output_pinned,
-//                            model->ret.pooled_output,
-//                            model->handle->batchsize * model->handle->hidden_size);
 
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);

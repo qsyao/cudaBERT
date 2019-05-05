@@ -19,7 +19,7 @@
 extern "C"
 class global_handle {
     public:
-        global_handle (bool BERT_Large=false, std::string dir = "", float lr = 0.000001, std::string optim = "sgd", bool optimRunningTime = true);
+        global_handle (bool BERT_Large=false, std::string dir = "", float lr = 0.000001, std::string optim = "sgd", bool optimRunningTime = true, bool isTrain = false);
 
         ~global_handle();
 
@@ -53,6 +53,7 @@ class global_handle {
         float learning_rate = 0.000001;
         std::string optim_method = "sgd";
         bool optim_running_time = true;
+        bool is_train = false;
 
         malloc_manage<float> global_malloc_manage_float;
         malloc_manage<int> global_malloc_manage_int;
