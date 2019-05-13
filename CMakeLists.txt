@@ -33,6 +33,8 @@ set(CUDA_SEPARABLE_COMPILATION ON)
 set(SOURCE_FILES
         utils/bert.cu
         utils/common.cc
+        utils/tokenization.cpp
+        utils/utf8proc/utf8proc.c
         utils/load_model.cc
         utils/manager.cu
         optim/optim.cu

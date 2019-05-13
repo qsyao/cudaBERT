@@ -1,7 +1,7 @@
 #include "manager.cuh"
 #include "load_model.h"
 
-global_handle::global_handle (bool BERT_Large, std::string dir, float lr, std::string optim, bool optimRunningTime, bool isTrain) {
+global_handle::global_handle (bool BERT_Large, std::string dir, bool optimRunningTime, bool isTrain, int numClasses) {
     if(BERT_Large){
         dir_npy = "model_npy/large_uncased";
         hidden_size = 1024;
@@ -12,10 +12,9 @@ global_handle::global_handle (bool BERT_Large, std::string dir, float lr, std::s
     }
     if (dir != "") 
         dir_npy = dir;
-    learning_rate = lr;
-    optim_method = optim;
     optim_running_time = optimRunningTime;
     is_train = isTrain;
+    num_classes = numClasses;
     load_from_dir_to_GPU(dir_npy, tts);
     checkError(cublasCreate(&handle), "cublasCreate() error!\n");
     init_cudamemory(max_mem_size / max_seq_length, max_seq_length);
@@ -24,6 +23,21 @@ global_handle::global_handle (bool BERT_Large, std::string dir, float lr, std::s
     cudaEventCreate(&copy_event);
     cudaEventCreate(&layer_compute_done);
     checkError(cublasSetStream(handle, cal_stream), "Set cublas stream Error!\n");
+}
+
+void global_handle::set_optim_sgd(float lr) {
+    learning_rate = lr;
+    optim_method = "sgd";
+}
+
+void global_handle::set_optim_adam(float lr, float weightDecayLate, float beta1,
+                    float beta2, float eps) {
+    learning_rate = lr;
+    weight_decay_rate = weightDecayLate;
+    beta_1 = beta1;
+    beta_2 = beta2;
+    epsilon = eps;
+    optim_method = "adam";
 }
 
 global_handle::~global_handle(){
@@ -37,7 +51,9 @@ void global_handle::init_cudamemory(int batchsize, int seq_length){
 
     size_t left, total, real_Memcost;
     checkCudaErrors(cudaMemGetInfo(&left, &total));
+
     left -= 1024 * 1024 * 500;
+
     std::cout<<"CUDA Memory INFO: Free: "<< left / 1024 / 1024 <<"MB"<<std::endl;
     left = left / sizeof(float);
     global_malloc_manage_float.init(left);

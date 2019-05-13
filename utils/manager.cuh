@@ -19,9 +19,14 @@
 extern "C"
 class global_handle {
     public:
-        global_handle (bool BERT_Large=false, std::string dir = "", float lr = 0.000001, std::string optim = "sgd", bool optimRunningTime = true, bool isTrain = false);
+        global_handle (bool BERT_Large=false, std::string dir = "", bool optimRunningTime = true, bool isTrain = false, int num_classes = 2);
 
         ~global_handle();
+
+        void set_optim_sgd(float lr = 0.000001);
+
+        void set_optim_adam(float learning_rate = 0.001, float weight_decay_rate = 0.0, float beta_1 = 0.9,
+                            float beta_2 = 0.999, float epsilon = 1e-8);
 
         void init_cudamemory(int batchsize, int seq_length);
 
@@ -54,6 +59,11 @@ class global_handle {
         std::string optim_method = "sgd";
         bool optim_running_time = true;
         bool is_train = false;
+        float beta_1;
+        float beta_2;
+        float weight_decay_rate;
+        float epsilon;
+        int num_classes;
 
         malloc_manage<float> global_malloc_manage_float;
         malloc_manage<int> global_malloc_manage_int;

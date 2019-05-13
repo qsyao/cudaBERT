@@ -17,7 +17,9 @@ op_BatchedLinear::op_BatchedLinear(std::string key_query_kernel,
                                    std::string key_key_bias,
                                    std::string key_val_kernel,
                                    std::string key_val_bias,
-                                   global_handle *handle)
+                                   global_handle *handle,
+                                   int n1,
+                                   int n2)
         : op_kernel(handle) {
     std::vector < tagged_tensor * > tts = handle->tts;
 
@@ -71,6 +73,34 @@ op_BatchedLinear::op_BatchedLinear(std::string key_query_kernel,
     query_kernel = batch_attentin_weights;
     key_kernel = key;
     val_kernel = value;
+    if(handle->is_train) {
+        if(handle->optim_method == "sgd") {
+            learning_rate = handle->learning_rate;
+        }
+        else if(handle->optim_method == "adam") {
+            learning_rate = handle->learning_rate;
+
+            query_kernel_m_t = handle->global_malloc_manage_float.get_new_head_point(n1);
+            query_kernel_v_t = handle->global_malloc_manage_float.get_new_head_point(n1);
+            key_kernel_m_t = handle->global_malloc_manage_float.get_new_head_point(n1);
+            key_kernel_v_t = handle->global_malloc_manage_float.get_new_head_point(n1);
+            val_kernel_m_t = handle->global_malloc_manage_float.get_new_head_point(n1);
+            val_kernel_v_t = handle->global_malloc_manage_float.get_new_head_point(n1);
+
+            query_bias_m_t = handle->global_malloc_manage_float.get_new_head_point(n2);
+            query_bias_v_t = handle->global_malloc_manage_float.get_new_head_point(n2);
+            key_bias_m_t = handle->global_malloc_manage_float.get_new_head_point(n2);
+            key_bias_v_t = handle->global_malloc_manage_float.get_new_head_point(n2);
+            val_bias_m_t = handle->global_malloc_manage_float.get_new_head_point(n2);
+            val_bias_v_t = handle->global_malloc_manage_float.get_new_head_point(n2);
+
+            weight_decay_rate = handle->weight_decay_rate;
+            beta_1 = handle->beta_1;
+            beta_2 = handle->beta_2;
+            epsilon = handle->epsilon;
+            step = 0;
+        }
+    }
 }
 
 template<typename T>
@@ -207,11 +237,22 @@ linearBackward(T *dout, T *kernel, T *stored_input, T *grad_input, T *grad_kerne
                     m);
 }
 
-
 void op_Linear::update_weights(size_t n1, size_t n2) {
     if (handle->optim_method == "sgd") {
-        apply_sgd_running_time(kernel, grad_kernel, n1, handle);
-        apply_sgd_running_time(bias, grad_bias, n2, handle);
+        apply_sgd_running_time(kernel, grad_kernel, n1, learning_rate, handle);
+        apply_sgd_running_time(bias, grad_bias, n2, learning_rate, handle);
+    }
+    else if(handle->optim_method == "adam") {
+        apply_adam_running_time(kernel, grad_kernel, n1, kernel_m_t, kernel_v_t, beta_1_t,
+                                 beta_2_t, handle, learning_rate, weight_decay_rate, beta_1,
+                                 beta_2, epsilon, step);
+        apply_adam_running_time(bias, grad_bias, n2, bias_m_t, bias_v_t, beta_1_t,
+                                beta_2_t, handle, learning_rate, weight_decay_rate, beta_1,
+                                beta_2, epsilon, step);
+
+        beta_1_t = beta_1_t * beta_1;
+        beta_2_t = beta_2_t * beta_2;
+        step += 1;
     }
 }
 
@@ -337,13 +378,38 @@ void op_BatchedLinear::forward<float>(
 
 void op_BatchedLinear::update_weights(size_t n1, size_t n2) {
     if (handle->optim_method == "sgd") {
-        apply_sgd_running_time(query_kernel, grad_query_kernel, n1, handle);
-        apply_sgd_running_time(key_kernel, grad_key_kernel, n1, handle);
-        apply_sgd_running_time(val_kernel, grad_val_kernel, n1, handle);
+        apply_sgd_running_time(query_kernel, grad_query_kernel, n1, learning_rate, handle);
+        apply_sgd_running_time(key_kernel, grad_key_kernel, n1, learning_rate, handle);
+        apply_sgd_running_time(val_kernel, grad_val_kernel, n1, learning_rate, handle);
 
-        apply_sgd_running_time(query_bias, grad_query_bias, n2, handle);
-        apply_sgd_running_time(key_bias, grad_key_bias, n2, handle);
-        apply_sgd_running_time(val_bias, grad_val_bias, n2, handle);
+        apply_sgd_running_time(query_bias, grad_query_bias, n2, learning_rate, handle);
+        apply_sgd_running_time(key_bias, grad_key_bias, n2, learning_rate, handle);
+        apply_sgd_running_time(val_bias, grad_val_bias, n2, learning_rate, handle);
+    }
+    else if(handle->optim_method == "adam") {
+        apply_adam_running_time(query_kernel, grad_query_kernel, n1, query_kernel_m_t, query_kernel_v_t, beta_1_t,
+                                beta_2_t, handle, learning_rate, weight_decay_rate, beta_1,
+                                beta_2, epsilon, step);
+        apply_adam_running_time(key_kernel, grad_key_kernel, n1, key_kernel_m_t, key_kernel_v_t, beta_1_t,
+                                beta_2_t, handle, learning_rate, weight_decay_rate, beta_1,
+                                beta_2, epsilon, step);
+        apply_adam_running_time(val_kernel, grad_val_kernel, n1, val_kernel_m_t, val_kernel_v_t, beta_1_t,
+                                beta_2_t, handle, learning_rate, weight_decay_rate, beta_1,
+                                beta_2, epsilon, step);
+
+        apply_adam_running_time(query_bias, grad_query_bias, n2, query_bias_m_t, query_bias_v_t, beta_1_t,
+                                beta_2_t, handle, learning_rate, weight_decay_rate, beta_1,
+                                beta_2, epsilon, step);
+        apply_adam_running_time(key_bias, grad_key_bias, n2, key_bias_m_t, key_bias_v_t, beta_1_t,
+                                beta_2_t, handle, learning_rate, weight_decay_rate, beta_1,
+                                beta_2, epsilon, step);
+        apply_adam_running_time(val_bias, grad_val_bias, n2, val_bias_m_t, val_bias_v_t, beta_1_t,
+                                beta_2_t, handle, learning_rate, weight_decay_rate, beta_1,
+                                beta_2, epsilon, step);
+
+        beta_1_t = beta_1_t * beta_1;
+        beta_2_t = beta_2_t * beta_2;
+        step += 1;
     }
 }
 

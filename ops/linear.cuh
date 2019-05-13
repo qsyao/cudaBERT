@@ -12,7 +12,9 @@ class op_Linear : public op_kernel{
   public:
     op_Linear(std::string key_kernel, 
               std::string key_bias,
-              global_handle* handle)
+              global_handle* handle,
+              int n1 = -1,
+              int n2 = -1)
                  : op_kernel(handle) {
         std::vector<std::string> keys = {key_kernel};
         tagged_tensor* tt = look_up_tts(handle->tts, keys);
@@ -20,6 +22,25 @@ class op_Linear : public op_kernel{
         keys = {key_bias};
         tt = look_up_tts(handle->tts, keys);
         bias = tt->gpu_mem;
+        if(handle->is_train) {
+            if(handle->optim_method == "sgd") {
+                learning_rate = handle->learning_rate;
+            }
+            else if(handle->optim_method == "adam") {
+                learning_rate = handle->learning_rate;
+                weight_decay_rate = handle->weight_decay_rate;
+                beta_1 = handle->beta_1;
+                beta_2 = handle->beta_2;
+
+                kernel_m_t = handle->global_malloc_manage_float.get_new_head_point(n1);
+                kernel_v_t = handle->global_malloc_manage_float.get_new_head_point(n1);
+
+                bias_m_t = handle->global_malloc_manage_float.get_new_head_point(n2);
+                bias_v_t = handle->global_malloc_manage_float.get_new_head_point(n2);
+                epsilon = handle->epsilon;
+                step = 0;
+            }
+        }
     }
 
     ~op_Linear();
@@ -46,7 +67,19 @@ public:
 
     float *kernel;
     float *bias;
+    float beta_1;
+    float beta_2;
+    float weight_decay_rate;
+    float epsilon;
+    float beta_1_t;
+    float beta_2_t;
+    float *kernel_m_t;
+    float *kernel_v_t;
+    float *bias_m_t;
+    float *bias_v_t;
+    int step = 0;
 public:
+    float learning_rate;
     float *grad_input;
     float *grad_kernel;
     float *grad_bias;
@@ -60,7 +93,9 @@ class op_BatchedLinear : public op_kernel{
                       std::string key_key_bias,
                       std::string key_val_kernel, 
                       std::string key_val_bias,
-                      global_handle* handle);
+                      global_handle* handle,
+                      int n1 = -1,
+                      int n2 = -1);
 
     ~op_BatchedLinear();
 
@@ -88,9 +123,29 @@ public:
     float* key_bias;
     float* val_kernel; 
     float* val_bias;
+    float beta_1;
+    float beta_2;
+    float weight_decay_rate;
+    float epsilon;
+    float beta_1_t;
+    float beta_2_t;
+    float *query_kernel_m_t;
+    float *query_kernel_v_t;
+    float *query_bias_m_t;
+    float *query_bias_v_t;
+    float* key_kernel_m_t;
+    float* key_kernel_v_t;
+    float* key_bias_m_t;
+    float* key_bias_v_t;
+    float* val_kernel_m_t;
+    float* val_kernel_v_t;
+    float* val_bias_m_t;
+    float* val_bias_v_t;
+    int step = 0;
 
     float* batch_attentin_weights;
 public:
+    float learning_rate;
     float* grad_query_input;
     float* grad_query_kernel;
     float* grad_query_bias;

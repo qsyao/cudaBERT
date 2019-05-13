@@ -204,18 +204,21 @@ void op_LayerNorm::forward(
         size_t n2,
         T *merge_add
 ) {
+//    debug_tensor_gpu<float>(std::string("gamma"), input, 1, n1, 1);
+
     if(handle->is_train) {
         mean = handle->global_malloc_manage_float.get_new_head_point(n1);
         invvar = handle->global_malloc_manage_float.get_new_head_point(n1);
         // 经过了残差连接
         stored_input = handle->global_malloc_manage_float.get_new_head_point(n1 * n2);
-        output = handle->global_malloc_manage_float.get_new_head_point(n1 * n2);
     }
     else {
         mean = nullptr;
         invvar = nullptr;
         stored_input = nullptr;
     }
+    output = handle->global_malloc_manage_float.get_new_head_point(n1 * n2);
+
     // auto stream TODO(): Muti-Stream 
     const dim3 threads(32, 4, 1);
     const dim3 blocks(1, min((long) 65535, n1), 1);
@@ -561,18 +564,39 @@ __global__ void cuComputeGradInput(
 
 void op_LayerNorm::update_weights(size_t n) {
     if (handle->optim_method == "sgd") {
-        apply_sgd_running_time(gamma, grad_gamma, n, handle);
-        apply_sgd_running_time(beta, grad_beta, n, handle);
+        if (gamma != NULL && beta != NULL) {
+            apply_sgd_running_time(gamma, grad_gamma, n, learning_rate, handle);
+            apply_sgd_running_time(beta, grad_beta, n, learning_rate, handle);
+        }
+    }
+    else if(handle->optim_method == "adam") {
+        if (gamma != NULL && beta != NULL) {
+
+            apply_adam_running_time(gamma, grad_gamma, n, gamma_m_t, gamma_v_t, beta_1_t,
+                                    beta_2_t, handle, learning_rate, weight_decay_rate, beta_1,
+                                    beta_2, adam_epsilon, step);
+
+            apply_adam_running_time(beta, grad_beta, n, beta_m_t, beta_v_t, beta_1_t,
+                                    beta_2_t, handle, learning_rate, weight_decay_rate, beta_1,
+                                    beta_2, adam_epsilon, step);
+
+            beta_1_t = beta_1_t * beta_1;
+            beta_2_t = beta_2_t * beta_2;
+            step += 1;
+        }
     }
 }
 
 template<typename T>
 void op_LayerNorm::backward(T *dout, size_t n1, size_t n2) {
     grad_input = handle->global_malloc_manage_float.get_new_head_point(n1 * n2);
-    grad_gamma = handle->global_malloc_manage_float.get_new_head_point(n1);
-    grad_beta = handle->global_malloc_manage_float.get_new_head_point(n1);
+    if(gamma != NULL && beta != NULL) {
+        grad_gamma = handle->global_malloc_manage_float.get_new_head_point(n2);
+        grad_beta = handle->global_malloc_manage_float.get_new_head_point(n2);
+    }
     if (gamma != NULL && beta != NULL) {
         // compute grad_gamma(j) and grad_beta(j)
+
         const int part_size = 16;
         const dim3 threads2(32, 4, 1);
         const dim3 blocks2((n2 + threads2.x - 1) / threads2.x, part_size, 1);
@@ -619,7 +643,7 @@ void op_LayerNorm::backward(T *dout, size_t n1, size_t n2) {
                     grad_input);
 
     if (handle->optim_running_time)
-        update_weights(n1);
+        update_weights(n2);
 }
 
 template

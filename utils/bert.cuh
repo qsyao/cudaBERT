@@ -21,7 +21,7 @@
 extern "C"
 class bert {
     public:
-        bert (bool BERT_Large=false, int num_gpu = 0, std::string dir = "", bool is_train = false, float lr = 0.000001, std::string optim = "sgd", bool optimRunningTime = true);
+        bert (bool BERT_Large=false, int num_gpu = 0, std::string dir = "", bool is_train = false, bool optimRunningTime = true, int num_classes = 2);
         //TODO　Muti_GPU
 
         ~bert(){

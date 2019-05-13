@@ -123,7 +123,7 @@ void op_SoftMax::forward(
             tensor,
                     n1, n2
     );
-    if(handle->is_train) {
+    if (handle->is_train) {
         stored_output = handle->global_malloc_manage_float.get_new_head_point(n1 * n2);
         checkCudaErrors(cudaMemcpyAsync(stored_output, tensor, n1 * n2 * sizeof(float), cudaMemcpyDeviceToDevice));
     }
@@ -143,7 +143,7 @@ void cuApplySoftmaxBackward(T *dout, T *forward_output, T *grad_input, size_t n1
     for (int i1 = blockIdx.x; i1 < n1; i1 += gridDim.x) {
         for (int i2 = threadIdx.x; i2 < n2; i2 += blockDim.x) {
             grad_input[i2 + i1 * n2] = 0;
-            for(int i3 = 0; i3 < n2; i3++)
+            for (int i3 = 0; i3 < n2; i3++)
                 grad_input[i2 + i1 * n2] -=
                         forward_output[i2 + i1 * n2] * forward_output[i3 + i1 * n2] * dout[i3 + i1 * n2];
             grad_input[i2 + i1 * n2] +=

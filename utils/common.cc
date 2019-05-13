@@ -1,5 +1,28 @@
 #include "common.h"
 
+void read_tsv(char *fname, std::vector <std::string> &items, std::vector <int> &gt_classes) {
+    std::ifstream ifs(fname);
+    if (ifs.fail()) {
+        std::cerr << "error" << std::endl;
+        return;
+    }
+    std::string line;
+    while (getline(ifs, line)) {
+        std::stringstream ss(line);
+        std::string endString = "";
+        std::string sentence = "";
+        std::string tmp;
+        while (getline(ss, tmp, '\t')) {
+            if (endString != "")
+                sentence = sentence + '\t' + endString;
+            endString = tmp;
+        }
+        gt_classes.push_back(std::stoi(endString));
+        items.push_back(sentence);
+    }
+    return;
+}
+
 template <typename T>
 void debug_tensor(std::string tag, T* tensor, int max_x , int length_x, int max_y){
     /*
@@ -27,7 +50,8 @@ void debug_tensor_gpu(std::string tag, void* gpu_tensor, int max_x, int length_x
     T* tensor = static_cast<T *>(gpu_tensor);
     std::cout<<" \nDEBUG GPU TENSOR: ****  "<<tag<<"  ******  "<<std::endl;
     std::cout<<" Pointer:  --- "<<gpu_tensor<<" ------ "<<std::endl;
-    checkCudaErrors(cudaMemcpyAsync(cpu_mem, tensor, sizeof(T)*length, cudaMemcpyDeviceToHost));
+//    checkCudaErrors(cudaMemcpyAsync(cpu_mem, tensor, sizeof(T)*length, cudaMemcpyDeviceToHost));
+    checkCudaErrors(cudaMemcpy(cpu_mem, tensor, sizeof(T)*length, cudaMemcpyDeviceToHost));
     for(int i = 0; i < max_y; i++){
         for(int j = 0; j < max_x; j++)
             std::cout<<" "<<cpu_mem[i*length_x + j]<<" ";
