@@ -242,9 +242,12 @@ template
 void op_Mask_Add::backward(float *dout, size_t n, float number);
 
 template<typename T>
-__global__ void gelu(T *tensor, size_t max_num) {
-    for (size_t i = blockIdx.x * blockDim.x + threadIdx.x; i < max_num; i += gridDim.x * blockDim.x)
+__global__ void gelu(T *tensor, size_t max_num, T *stored_input = nullptr) {
+    for (size_t i = blockIdx.x * blockDim.x + threadIdx.x; i < max_num; i += gridDim.x * blockDim.x){
+        if(stored_input != nullptr)
+            stored_input[i] = tensor[i];
         tensor[i] = tensor[i] * 0.5f * (1.0f + erff(tensor[i] / sqrtf(2.0)));
+    }
     __syncthreads();
 }
 
@@ -252,8 +255,9 @@ template<typename T>
 void op_Gelu::forward(T *tensor, size_t max_num) {
     if(handle->is_train) {
         stored_input = handle->global_malloc_manage_float.get_new_head_point(max_num);
-        checkCudaErrors(cudaMemcpyAsync(stored_input, tensor, max_num * sizeof(float), cudaMemcpyDeviceToDevice));
     }
+    else
+        stored_input = nullptr;
 
     dim3 threads(1024, 1, 1);
     dim3 blocks(min((long) 65535, (max_num + 1023) / 1024), 1, 1);
@@ -290,9 +294,12 @@ template
 void op_Gelu::backward<float>(float *dout, size_t max_num);
 
 template<typename T>
-__global__ void Tanh(T *tensor, size_t max_num) {
-    for (size_t i = blockIdx.x * blockDim.x + threadIdx.x; i < max_num; i += gridDim.x * blockDim.x)
+__global__ void Tanh(T *tensor, size_t max_num, T *stored_input = nullptr) {
+    for (size_t i = blockIdx.x * blockDim.x + threadIdx.x; i < max_num; i += gridDim.x * blockDim.x){
+        if(stored_input != nullptr)
+            stored_input[i] = tensor[i];
         tensor[i] = tanh(tensor[i]);
+    }
     __syncthreads();
 }
 
@@ -300,14 +307,16 @@ template<typename T>
 void op_Tanh::forward(T *tensor, size_t max_num) {
     if(handle->is_train) {
         stored_input = handle->global_malloc_manage_float.get_new_head_point(max_num);
-        checkCudaErrors(cudaMemcpyAsync(stored_input, tensor, max_num * sizeof(float), cudaMemcpyDeviceToDevice));
     }
+    else
+        stored_input = nullptr;
 
     dim3 threads(1024, 1, 1);
     dim3 blocks(min((long) 65535, max_num / 1024) + 1, 1, 1);
     Tanh << < blocks, threads, 0, handle->cal_stream >> > (
-            tensor,
-                    max_num);
+                    tensor,
+                    max_num,
+                    stored_input);
 }
 
 template
