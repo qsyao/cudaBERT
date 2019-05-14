@@ -2,9 +2,17 @@
 #include "load_model.h"
 #include "../ops/linear.cuh"
 
-bert::bert(bool BERT_Large, int num_gpu, std::string dir, bool is_train, bool optimRunningTime, int num_classes) {
+bert::bert(bool BERT_Large, int num_gpu, std::string dir, bool is_train, bool optimRunningTime, int num_classes,
+           std::string optim_method) {
     checkCudaErrors(cudaSetDevice(num_gpu));
     handle = new global_handle(BERT_Large, dir, optimRunningTime, is_train, num_classes);
+    if (is_train) {
+        // TODO: optim 参数
+        if (optim_method == "sgd")
+            handle->set_optim_sgd();
+        else if (optim_method == "adam")
+            handle->set_optim_adam();
+    }
     init_ops();
 }
 
@@ -54,7 +62,7 @@ void bert::init_ops() {
                 num_layer + "attention_self_key_bias",
                 num_layer + "attention_self_value_kernel",
                 num_layer + "attention_self_value_bias",
-                handle);
+                handle, handle->hidden_size * handle->hidden_size, handle->hidden_size);
         batched_linear.push_back(batchlinear);
 
         op_FusionTranspose *trans = new op_FusionTranspose(handle);
@@ -85,6 +93,10 @@ void bert::init_ops() {
     embedding = new Embedding(handle);
 
     op_tanh = new op_Tanh(handle);
+
+    if(handle->is_train && handle->optim_method == "adam") {
+        handle->global_malloc_manage_float.recerd_adam_start();
+    }
 }
 
 void bert::copy_inputs(int *&words,
@@ -304,8 +316,13 @@ void bert::BERT_train(
     size_t intermediate_size = handle->intermediate_size;
 
     handle->set_scale(batchsize, seq_length);
-    handle->reset();
-
+    if(handle->is_train && handle->optim_method == "adam") {
+        handle->global_malloc_manage_float.reuse_adam_mem();
+        handle->global_malloc_manage_int.set_head_zero();
+    }
+    else {
+        handle->reset();
+    }
     int *positions;
     copy_inputs(words, token_types, positions, attention_mask);
 
@@ -438,7 +455,7 @@ void bert::BERT_train(
     ret.pooled_output = pooler_out;
 }
 
-float *bert::classify_train(int *classes, float *pooler_out, size_t num_classes) {
+float bert::classify_train(int *classes, float *pooler_out, size_t num_classes) {
     float *loss_out;
     float *classify_out;
 
@@ -450,14 +467,20 @@ float *bert::classify_train(int *classes, float *pooler_out, size_t num_classes)
 //    debug_tensor_gpu<float>(std::string("classify_out"), classify_out, 2, 2, handle->batchsize);
 
     int *calsses_gpu;
-    calsses_gpu = handle->global_malloc_manage_int.get_new_head_point(handle->hidden_size);
-    checkCudaErrors(cudaMemcpyAsync(calsses_gpu, classes, handle->hidden_size * sizeof(int), cudaMemcpyHostToDevice));
+    calsses_gpu = handle->global_malloc_manage_int.get_new_head_point(handle->batchsize);
+    checkCudaErrors(cudaMemcpyAsync(calsses_gpu, classes, handle->batchsize * sizeof(int), cudaMemcpyHostToDevice));
 
     loss->forward(loss_out, classify_out, calsses_gpu, handle->batchsize, num_classes);
 //    debug_tensor_gpu<float>(std::string("loss_out"), loss_out, handle->batchsize + 1, handle->batchsize + 1);
 
-    if(!handle->is_train)
-        return loss_out;
+    float * cpu_mem;
+    cpu_mem = (float *)malloc(sizeof(float) * 1);
+    checkCudaErrors(cudaMemcpyAsync(cpu_mem, loss_out + handle->batchsize, sizeof(float)*1, cudaMemcpyDeviceToHost));
+
+    float loss_return = (*cpu_mem);
+
+    if (!handle->is_train)
+        return loss_return;
     float *dout_gpu;
     dout_gpu = handle->global_malloc_manage_float.get_new_head_point(1);
     float *dout = (float *) malloc(sizeof(float));
@@ -469,6 +492,9 @@ float *bert::classify_train(int *classes, float *pooler_out, size_t num_classes)
     classify_linear->backward(loss->grad_input, handle->batchsize,
                               handle->hidden_size,
                               num_classes);
+
+//    debug_tensor_gpu<float>(std::string("classify_linear->bias"), classify_linear->bias, num_classes, num_classes);
+//    debug_tensor_gpu<float>(std::string("classify_linear->kernel"), classify_linear->kernel, num_classes, num_classes, handle->hidden_size);
 
 //    debug_tensor_gpu<float>(std::string("grad_input"), classify_linear->grad_input, 3, handle->hidden_size, handle->batchsize);
 //    debug_tensor_gpu<float>(std::string("grad_kernel"), classify_linear->grad_kernel, num_classes, num_classes, 3);
@@ -499,13 +525,9 @@ float *bert::classify_train(int *classes, float *pooler_out, size_t num_classes)
                                                                                      handle->seq_length);
     }
 
-    //TODO: Memory resue
     for (int i = handle->num_hidden_layers - 1; i >= 0; i--) {
-//        std::cout << "1111111" << std::endl;
-//        TODO: memery reuse
-//        if (handle->optim_running_time)
-//            handle->global_malloc_manage_float.record_layer_start();
-//        printf("Round:  %d\n", i);
+        if (handle->optim_running_time)
+            handle->global_malloc_manage_float.record_layer_start();
 
         output_layernorm[i]->backward(tensor_layer_grad_input, handle->batchsize * handle->seq_length,
                                       handle->hidden_size);
@@ -519,6 +541,7 @@ float *bert::classify_train(int *classes, float *pooler_out, size_t num_classes)
 
         output_linear[i]->backward(output_layernorm[i]->grad_input, handle->batchsize * handle->seq_length,
                                    handle->intermediate_size, handle->hidden_size);
+
 //        debug_tensor_gpu<float>(std::string("output_linear[i]->grad_input"), output_linear[i]->grad_input, 3, handle->intermediate_size, handle->batchsize * handle->seq_length);
 //        debug_tensor_gpu<float>(std::string("output_linear[i]->grad_kernel"), output_linear[i]->grad_kernel, 3, handle->hidden_size, 100);
 //        debug_tensor_gpu<float>(std::string("output_linear[i]->grad_bias"), output_linear[i]->grad_bias, 3, handle->hidden_size, 1);
@@ -528,7 +551,6 @@ float *bert::classify_train(int *classes, float *pooler_out, size_t num_classes)
                           handle->batchsize * handle->seq_length * handle->intermediate_size);
 //        debug_tensor_gpu<float>(std::string("gelu[i]->grad_input"), gelu[i]->grad_input, 3, handle->intermediate_size,
 //                                handle->batchsize * handle->seq_length);
-
 
         intermediate_linear[i]->backward(gelu[i]->grad_input, handle->batchsize * handle->seq_length,
                                          handle->hidden_size, handle->intermediate_size);
@@ -551,9 +573,9 @@ float *bert::classify_train(int *classes, float *pooler_out, size_t num_classes)
 //        debug_tensor_gpu<float>(std::string("intermediate_linear[i]->kernel"), intermediate_linear[i]->kernel, 3, handle->intermediate_size, 100);
 //        debug_tensor_gpu<float>(std::string("intermediate_linear[i]->bias"), intermediate_linear[i]->bias, 3, handle->intermediate_size, 1);
 
-
         attention_layernorm[i]->backward(intermediate_linear[i]->grad_input, handle->batchsize * handle->seq_length,
                                          handle->hidden_size);
+
 //        debug_tensor_gpu<float>(std::string("attention_layernorm[i]->grad_input"), attention_layernorm[i]->grad_input, 3, handle->hidden_size, handle->batchsize * handle->seq_length);
 
         attention_linear[i]->backward(attention_layernorm[i]->grad_input, handle->batchsize * handle->seq_length,
@@ -606,7 +628,7 @@ float *bert::classify_train(int *classes, float *pooler_out, size_t num_classes)
 //                                handle->batchsize * handle->num_attention_heads);
 
         size_t tot_length = handle->batchsize * handle->seq_length * handle->hidden_size;
-        float *dout = handle->global_malloc_manage_float.get_new_head_point(
+        float *dout1 = handle->global_malloc_manage_float.get_new_head_point(
                 tot_length * 3);
 
 //      query, key, value
@@ -614,14 +636,14 @@ float *bert::classify_train(int *classes, float *pooler_out, size_t num_classes)
             dim3 threads(1024, 1, 1);
             dim3 blocks(min((long) 65535, tot_length * 3 / 1024) + 1, 1, 1);
             MemoryCpyLinear<float> << < blocks, threads, 0, handle->cal_stream >> > (
-                    dout, query_key[i]->grad_input, tot_length, tot_length);
+                    dout1, query_key[i]->grad_input, tot_length, tot_length);
             MemoryCpyLinear<float> << < blocks, threads, 0, handle->cal_stream >> > (
-                    dout + tot_length, query_key[i]->grad_kernel, tot_length, tot_length);
+                    dout1 + tot_length, query_key[i]->grad_kernel, tot_length, tot_length);
             MemoryCpyLinear<float> << < blocks, threads, 0, handle->cal_stream >> > (
-                    dout + 2 * tot_length, head_value[i]->grad_kernel, tot_length, tot_length);
+                    dout1 + 2 * tot_length, head_value[i]->grad_kernel, tot_length, tot_length);
         }
 
-        merge_heads[i]->backward(dout, 3, true);
+        merge_heads[i]->backward(dout1, 3, true);
 
 //        debug_tensor_gpu<float>(std::string("grad_query"), merge_heads[i]->grad_input, 3,
 //                        handle->hidden_size,
@@ -674,16 +696,16 @@ float *bert::classify_train(int *classes, float *pooler_out, size_t num_classes)
 //                                handle->batchsize * handle->seq_length);
         {
             dim3 threads(1024, 1, 1);
-            dim3 blocks(min((long) 65535, handle->hidden_size * handle->batchsize * handle->seq_length / 1024) + 1, 1, 1);
+            dim3 blocks(min((long) 65535, handle->hidden_size * handle->batchsize * handle->seq_length / 1024) + 1, 1,
+                        1);
             MemoryCpyLinear<float> << < blocks, threads, 0, handle->cal_stream >> > (
                     tensor_layer_grad_input, batched_linear[i]->grad_input, handle->hidden_size * handle->batchsize *
-                                                                     handle->seq_length, handle->hidden_size *
-                                                                                         handle->batchsize *
-                                                                                         handle->seq_length);
+                                                                            handle->seq_length, handle->hidden_size *
+                                                                                                handle->batchsize *
+                                                                                                handle->seq_length);
         }
-//        if (handle->optim_running_time)
-//            handle->global_malloc_manage_float.reuse_layer_mem();
+        if (handle->optim_running_time)
+            handle->global_malloc_manage_float.reuse_layer_mem();
     }
-//    debug_tensor_gpu<float>(std::string("loss_out"), loss_out, handle->batchsize + 1, handle->batchsize + 1);
-    return loss_out;
+    return loss_return;
 }

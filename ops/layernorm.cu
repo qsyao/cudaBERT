@@ -211,13 +211,13 @@ void op_LayerNorm::forward(
         invvar = handle->global_malloc_manage_float.get_new_head_point(n1);
         // 经过了残差连接
         stored_input = handle->global_malloc_manage_float.get_new_head_point(n1 * n2);
+        output = handle->global_malloc_manage_float.get_new_head_point(n1 * n2);
     }
     else {
         mean = nullptr;
         invvar = nullptr;
         stored_input = nullptr;
     }
-    output = handle->global_malloc_manage_float.get_new_head_point(n1 * n2);
 
     // auto stream TODO(): Muti-Stream 
     const dim3 threads(32, 4, 1);
@@ -571,7 +571,6 @@ void op_LayerNorm::update_weights(size_t n) {
     }
     else if(handle->optim_method == "adam") {
         if (gamma != NULL && beta != NULL) {
-
             apply_adam_running_time(gamma, grad_gamma, n, gamma_m_t, gamma_v_t, beta_1_t,
                                     beta_2_t, handle, learning_rate, weight_decay_rate, beta_1,
                                     beta_2, adam_epsilon, step);

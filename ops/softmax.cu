@@ -166,3 +166,4 @@ void op_SoftMax::backward(T *dout, size_t n1, size_t n2) {
 template
 void op_SoftMax::backward(float *dout, size_t n1, size_t n2);
 
+

@@ -21,7 +21,7 @@
 extern "C"
 class bert {
     public:
-        bert (bool BERT_Large=false, int num_gpu = 0, std::string dir = "", bool is_train = false, bool optimRunningTime = true, int num_classes = 2);
+        bert (bool BERT_Large=false, int num_gpu = 0, std::string dir = "", bool is_train = false, bool optimRunningTime = true, int num_classes = 2, std::string optim_method = "sgd");
         //TODO　Muti_GPU
 
         ~bert(){
@@ -51,7 +51,7 @@ class bert {
                 size_t seq_length,
                 int* attention_mask=nullptr);
 
-        float* classify_train(int* classes, float* pooler_out, size_t num_classes);
+        float classify_train(int* classes, float* pooler_out, size_t num_classes);
 
         void get_gpu_result(float* output,
                             float* gpu_tensor,

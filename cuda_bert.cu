@@ -164,10 +164,9 @@ void convert_batch_example(void *tokenizer, int batch_size,
 
 extern "C" {
 
-bert *init_model(bool large = false, int num_gpu = 0, std::string dir = "", bool is_train = false, float lr = 0.000001,
-                 std::string optim = "sgd", bool optimRunningTime = true, int num_classes = 2) {
-    bert *ret = new bert(large, num_gpu, dir, is_train, optimRunningTime, num_classes);
-    ret->handle->set_optim_sgd();
+bert *init_model(bool large = false, int num_gpu = 0, std::string dir = "", bool is_train = false, float lr = 0.001,
+                 std::string optim = "adam", bool optimRunningTime = true, int num_classes = 2) {
+    bert *ret = new bert(large, num_gpu, dir, is_train, optimRunningTime, num_classes, optim);
     return ret;
 }
 
@@ -204,8 +203,7 @@ void Cuda_Classify(bert *model,
     model->get_gpu_result(output, output_gpu, batchsize * num_classes);
 }
 
-float* cuda_classify_train(bert *model,
-                         float *output,
+float cuda_classify_train(bert *model,
                          int *words,
                          int *token_types,
                          int *classes,
@@ -218,8 +216,7 @@ float* cuda_classify_train(bert *model,
                       batchsize,
                       seq_length,
                       attention_mask);
-    float *output_gpu;
-    output_gpu = model->classify_train(classes, model->ret.pooled_output, num_classes);
+    float output_gpu = model->classify_train(classes, model->ret.pooled_output, num_classes);
     return output_gpu;
 }
 
@@ -388,13 +385,11 @@ void bert_train(int batchsize, int seq_length, int nIter, bool base, int num_gpu
 
             float it_time;
             cudaEventRecord(start);
-            float *output;
             int tmp_batchsize = min( (j+1) * batchsize, tot_line_len) - j * batchsize;
             model->handle->batchsize = tmp_batchsize;
 
-            output = cuda_classify_train(
+            float loss = cuda_classify_train(
                     model,
-                    output,
                     input_ids,
                     segment_ids,
                     classes,
@@ -403,11 +398,8 @@ void bert_train(int batchsize, int seq_length, int nIter, bool base, int num_gpu
                     num_labels,
                     input_mask
             );
-            float * cpu_mem;
-            cpu_mem = (float *)malloc(sizeof(float) * 1);
-            checkCudaErrors(cudaMemcpyAsync(cpu_mem, output + tmp_batchsize, sizeof(float)*1, cudaMemcpyDeviceToHost));
 
-            now_loss += (*cpu_mem) * tmp_batchsize;
+            now_loss += loss * tmp_batchsize;
 
 //            std::cout << "temp batch loss: " << (*cpu_mem) << std::endl;
             if(j % 200 == 199) {
@@ -441,7 +433,7 @@ void test_train(int batchsize, int seq_length, int nIter, bool base, int num_gpu
     int test_token_type_id_seed[11] = {0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1};
 
     int attention_mask[11] = {1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0};
-    int classes[1] = {1};
+    int classes[8] = {1, 1, 1, 1, 1, 1, 1, 1};
 
     int *test_word_id, *test_token_type_id, *test_attention_mask;
     test_word_id = filling_inputs(test_word_id_seed, seq_length, 11, batchsize);
@@ -488,10 +480,8 @@ void test_train(int batchsize, int seq_length, int nIter, bool base, int num_gpu
         printf("Round: %d\n", i);
         float it_time;
         cudaEventRecord(start);
-        float *output;
-        output = cuda_classify_train(
+        float loss = cuda_classify_train(
                 model,
-                output,
                 test_word_id,
                 test_token_type_id,
                 classes,
@@ -501,11 +491,7 @@ void test_train(int batchsize, int seq_length, int nIter, bool base, int num_gpu
                 test_attention_mask
         );
 
-        float * cpu_mem;
-        cpu_mem = (float *)malloc(sizeof(float) * 1);
-        checkCudaErrors(cudaMemcpyAsync(cpu_mem, output + batchsize, sizeof(float)*1, cudaMemcpyDeviceToHost));
-
-        printf("loss is %.10f\n", (*cpu_mem));
+        printf("loss is %.10f\n", loss);
 
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
@@ -519,11 +505,3 @@ void test_train(int batchsize, int seq_length, int nIter, bool base, int num_gpu
     printf("Time= %.2f(ms)\n", dSeconds);
 }
 }
-
-
-/*
- * TODO
- * 1. sgd验证
- * 2. 随机初始化checkpoint
- * 3. Adam
- */

@@ -129,20 +129,30 @@ class malloc_manage {
     void record_layer_start(){
         layer_start = head;
     }
-    
+
+    void recerd_adam_start() {
+        adam_start = head;
+    }
+
+    void reuse_adam_mem() {
+        head = adam_start;
+    }
+
     void reuse_layer_mem(){
         head = layer_start;
     }
+
     void del() {
         checkCudaErrors(cudaFree(point_head));
         return ;
     }
 
-  private:
+private:
     T *point_head;
     long layer_start;
     long tot_size;
     long head;
+    long adam_start;
 
 };
 

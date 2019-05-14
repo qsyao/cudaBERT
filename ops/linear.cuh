@@ -32,6 +32,9 @@ class op_Linear : public op_kernel{
                 beta_1 = handle->beta_1;
                 beta_2 = handle->beta_2;
 
+                beta_1_t = 1.0;
+                beta_2_t = 1.0;
+
                 kernel_m_t = handle->global_malloc_manage_float.get_new_head_point(n1);
                 kernel_v_t = handle->global_malloc_manage_float.get_new_head_point(n1);
 

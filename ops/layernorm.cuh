@@ -23,17 +23,21 @@ class op_LayerNorm : public op_kernel{
                 learning_rate = handle->learning_rate;
             }
             else if(handle->optim_method == "adam") {
-                learning_rate = handle->learning_rate;
-                weight_decay_rate = handle->weight_decay_rate;
-                beta_1 = handle->beta_1;
-                beta_2 = handle->beta_2;
-                gamma_m_t = handle->global_malloc_manage_float.get_new_head_point(n);
-                gamma_v_t = handle->global_malloc_manage_float.get_new_head_point(n);
+                if(n != -1) {
+                    learning_rate = handle->learning_rate;
+                    weight_decay_rate = handle->weight_decay_rate;
+                    beta_1 = handle->beta_1;
+                    beta_2 = handle->beta_2;
+                    beta_1_t = 1.0;
+                    beta_2_t = 1.0;
+                    gamma_m_t = handle->global_malloc_manage_float.get_new_head_point(n);
+                    gamma_v_t = handle->global_malloc_manage_float.get_new_head_point(n);
 
-                beta_m_t = handle->global_malloc_manage_float.get_new_head_point(n);
-                beta_v_t = handle->global_malloc_manage_float.get_new_head_point(n);
-                adam_epsilon = handle->epsilon;
-                step = 0;
+                    beta_m_t = handle->global_malloc_manage_float.get_new_head_point(n);
+                    beta_v_t = handle->global_malloc_manage_float.get_new_head_point(n);
+                    adam_epsilon = handle->epsilon;
+                    step = 0;
+                }
             }
         }
     }

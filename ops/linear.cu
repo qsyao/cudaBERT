@@ -80,6 +80,9 @@ op_BatchedLinear::op_BatchedLinear(std::string key_query_kernel,
         else if(handle->optim_method == "adam") {
             learning_rate = handle->learning_rate;
 
+            beta_1_t = 1.0;
+            beta_2_t = 1.0;
+
             query_kernel_m_t = handle->global_malloc_manage_float.get_new_head_point(n1);
             query_kernel_v_t = handle->global_malloc_manage_float.get_new_head_point(n1);
             key_kernel_m_t = handle->global_malloc_manage_float.get_new_head_point(n1);
@@ -264,6 +267,8 @@ void op_Linear::backward(T *dout, size_t n,
     grad_kernel = handle->global_malloc_manage_float.get_new_head_point(k * m);
     grad_bias = handle->global_malloc_manage_float.get_new_head_point(m);
     linearBackward(dout, kernel, stored_input, grad_input, grad_kernel, grad_bias, n, k, m, handle);
+
+//    debug_tensor_gpu<float>(std::string("grad_input"), grad_input, 3, k, n);
 
     if (handle->optim_running_time)
         update_weights(k * m, m);

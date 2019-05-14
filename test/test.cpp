@@ -2,10 +2,11 @@
 #include <string>
 
 int main(int argc, char *argv[]){
-   if (argc == 1)
-       test(4, 11, 1, false);
+   if (argc == 1) {
+       test_train(8, 128, 300, false);
+   }
    else{
-      test(std::stoi(argv[1]), std::stoi(argv[2]), std::stoi(argv[3]), false, std::stoi(argv[4]));
+       test_train(std::stoi(argv[1]), std::stoi(argv[2]), std::stoi(argv[3]), false, std::stoi(argv[4]));
    }
    return 0;
 }
