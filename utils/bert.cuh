@@ -21,7 +21,8 @@
 extern "C"
 class bert {
     public:
-        bert (bool BERT_Large=false, int num_gpu = 0, std::string dir = "", bool is_train = false, bool optimRunningTime = true, int num_classes = 2, std::string optim_method = "sgd");
+        bert (bool BERT_Large=false, int num_gpu = 0, std::string dir = "", bool is_train = false, bool optimRunningTime = true, int num_classes = 2, std::string optim_method = "sgd",
+              float lr = 0.001);
         //TODO　Muti_GPU
 
         ~bert(){
@@ -29,6 +30,9 @@ class bert {
         }
 
         void init_ops();
+
+        void update_lr_start(double lr);
+        void update_lr_end();
 
         void copy_inputs(int* &words, 
                          int* &token_type,

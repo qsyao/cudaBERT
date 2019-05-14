@@ -563,6 +563,9 @@ __global__ void cuComputeGradInput(
 }
 
 void op_LayerNorm::update_weights(size_t n) {
+    if(handle->update_learning_rate) {
+        learning_rate = handle->learning_rate;
+    }
     if (handle->optim_method == "sgd") {
         if (gamma != NULL && beta != NULL) {
             apply_sgd_running_time(gamma, grad_gamma, n, learning_rate, handle);

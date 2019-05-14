@@ -241,6 +241,9 @@ linearBackward(T *dout, T *kernel, T *stored_input, T *grad_input, T *grad_kerne
 }
 
 void op_Linear::update_weights(size_t n1, size_t n2) {
+    if(handle->update_learning_rate) {
+        learning_rate = handle->learning_rate;
+    }
     if (handle->optim_method == "sgd") {
         apply_sgd_running_time(kernel, grad_kernel, n1, learning_rate, handle);
         apply_sgd_running_time(bias, grad_bias, n2, learning_rate, handle);
@@ -382,6 +385,9 @@ void op_BatchedLinear::forward<float>(
         bool debug);
 
 void op_BatchedLinear::update_weights(size_t n1, size_t n2) {
+    if(handle->update_learning_rate) {
+        learning_rate = handle->learning_rate;
+    }
     if (handle->optim_method == "sgd") {
         apply_sgd_running_time(query_kernel, grad_query_kernel, n1, learning_rate, handle);
         apply_sgd_running_time(key_kernel, grad_key_kernel, n1, learning_rate, handle);

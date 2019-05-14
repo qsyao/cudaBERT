@@ -23,7 +23,7 @@ class global_handle {
 
         ~global_handle();
 
-        void set_optim_sgd(float lr = 0.000001);
+        void set_optim_sgd(float lr = 0.001);
 
         void set_optim_adam(float learning_rate = 0.001, float weight_decay_rate = 0.0, float beta_1 = 0.9,
                             float beta_2 = 0.999, float epsilon = 1e-8);
@@ -55,7 +55,8 @@ class global_handle {
         size_t seq_length;
         size_t max_seq_length = 512;
         size_t max_mem_size = 200 * 512;
-        float learning_rate = 0.000001;
+        float learning_rate = 0.001;
+        bool update_learning_rate = false;
         std::string optim_method = "sgd";
         bool optim_running_time = true;
         bool is_train = false;

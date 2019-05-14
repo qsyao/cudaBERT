@@ -3,15 +3,15 @@
 #include "../ops/linear.cuh"
 
 bert::bert(bool BERT_Large, int num_gpu, std::string dir, bool is_train, bool optimRunningTime, int num_classes,
-           std::string optim_method) {
+           std::string optim_method, float lr) {
     checkCudaErrors(cudaSetDevice(num_gpu));
     handle = new global_handle(BERT_Large, dir, optimRunningTime, is_train, num_classes);
     if (is_train) {
         // TODO: optim 参数
         if (optim_method == "sgd")
-            handle->set_optim_sgd();
+            handle->set_optim_sgd(lr);
         else if (optim_method == "adam")
-            handle->set_optim_adam();
+            handle->set_optim_adam(lr);
     }
     init_ops();
 }
@@ -97,6 +97,15 @@ void bert::init_ops() {
     if(handle->is_train && handle->optim_method == "adam") {
         handle->global_malloc_manage_float.recerd_adam_start();
     }
+}
+
+void bert::update_lr_start(double lr) {
+    handle->update_learning_rate = true;
+    handle->learning_rate = lr;
+}
+
+void bert::update_lr_end() {
+    handle->update_learning_rate = false;
 }
 
 void bert::copy_inputs(int *&words,

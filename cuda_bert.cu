@@ -165,8 +165,8 @@ void convert_batch_example(void *tokenizer, int batch_size,
 extern "C" {
 
 bert *init_model(bool large = false, int num_gpu = 0, std::string dir = "", bool is_train = false, float lr = 0.001,
-                 std::string optim = "adam", bool optimRunningTime = true, int num_classes = 2) {
-    bert *ret = new bert(large, num_gpu, dir, is_train, optimRunningTime, num_classes, optim);
+                 std::string optim = "sgd", bool optimRunningTime = true, int num_classes = 2) {
+    bert *ret = new bert(large, num_gpu, dir, is_train, optimRunningTime, num_classes, optim, lr);
     return ret;
 }
 
@@ -476,10 +476,13 @@ void test_train(int batchsize, int seq_length, int nIter, bool base, int num_gpu
                                    (1024) * model->handle->hidden_size * sizeof(float)));
 
     double total_time = 0;
+    float learning_rate = 0.001;
+    float learning_rate_decay = 0.99;
     for (int i = 0; i < nIter; i++) {
         printf("Round: %d\n", i);
         float it_time;
         cudaEventRecord(start);
+        model->update_lr_start(learning_rate);
         float loss = cuda_classify_train(
                 model,
                 test_word_id,
@@ -490,6 +493,9 @@ void test_train(int batchsize, int seq_length, int nIter, bool base, int num_gpu
                 2,
                 test_attention_mask
         );
+        std::cout << model->handle->learning_rate << std::endl;
+        learning_rate *= learning_rate_decay;
+        model->update_lr_end();
 
         printf("loss is %.10f\n", loss);
 
