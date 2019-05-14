@@ -40,11 +40,10 @@ Retval Cuda_Inference(bert* model,
     return model->ret;
 }
 
-void cuda_classify (bert* model,
+void Cuda_Classify (bert* model,
                     float* output,
                     int* words,
                     int* token_types,
-                    int *classes,
                     int batchsize,
                     int seq_length,
                     int num_classes,
@@ -55,9 +54,9 @@ void cuda_classify (bert* model,
                             seq_length,
                             attention_mask);
     float * output_gpu;
-    output_gpu = model->classify_inference(classes, model->ret.pooled_output, num_classes);
+    output_gpu = model->classify_inference(num_classes);
 
-    model->classify_inference_backward(classes, num_classes);
+    model->get_gpu_result(output, output_gpu, batchsize*num_classes);
 }
 
 void test(int batchsize, int seq_length, int nIter, bool base, int num_gpu){

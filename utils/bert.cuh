@@ -42,7 +42,7 @@ class bert {
                             size_t seq_length, 
                             int* attention_mask=nullptr);
 
-        float* classify_inference(int *classes, float *pooler_out, size_t num_classes);
+        float* classify_inference(size_t num_classes);
     
         void classify_inference_backward(int *classes, size_t num_classes);
 
