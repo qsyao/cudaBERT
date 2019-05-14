@@ -1,5 +1,9 @@
 #include "layernorm.cuh"
 
+#include "shfl.cuh"
+#include "../utils/common.h"
+#include "../utils/manager.cuh"
+
 template<typename U> __device__ U rsqrt(U v) {
   return U(1) / sqrt(v);
 }
@@ -177,16 +181,12 @@ void cuApplyLayerNorm(
   }
 }
 
-template<typename T, typename U> 
-void HostApplyLayerNorm(
-    global_manager *handle,
+template<typename T> 
+void op_LayerNorm::forward(
     T* output,
     T* input,
     size_t n1,
     size_t n2,
-    double epsilon,
-    const T* gamma,
-    const T* beta,
     T* merge_add
     )
 {
@@ -195,25 +195,21 @@ void HostApplyLayerNorm(
     const dim3 blocks(1,min((long)65535,n1),1);
     int nshared = 
         threads.y > 1 ? 
-	    threads.y*sizeof(U)+(threads.y/2)*sizeof(U) : 
+	    threads.y*sizeof(T)+(threads.y/2)*sizeof(T) : 
 	    0;
-    cuApplyLayerNorm<<<blocks, threads, nshared, handle->get_cal_stream()>>>(
+    cuApplyLayerNorm<<<blocks, threads, nshared, handle->cal_stream>>>(
 		    output,
 		    input,
 		    n1,n2,
-		    U(epsilon),
+		    T(epsilon),
           gamma,beta, merge_add);
 }
 
 template
-void HostApplyLayerNorm<float, float>(
-    global_manager *handle,
+void op_LayerNorm::forward<float>(
     float* output,
     float* input,
     size_t n1,
     size_t n2,
-    double epsilon,
-    const float* gamma,
-    const float* beta,
     float* merge_add
     );

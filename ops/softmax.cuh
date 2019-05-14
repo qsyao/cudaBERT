@@ -1,16 +1,31 @@
 #ifndef SOFTMAX2_CUDA_BERT
 #define SOFTMAX2_CUDA_BERT
 
-#include "shfl.cuh"
-#include "../utils/common.h"
-#include "../utils/manager.cuh"
+#include "op_kernel.cuh"
 
-template<typename T> 
-void HostApplySoftmax(
-    global_manager *handle,
-    T* tensor,
-    size_t n1,
-    size_t n2
-    );
+class op_SoftMax : public op_kernel {
+  public:
+    op_SoftMax(global_handle* handle)
+               : op_kernel(handle) {};
+
+    ~op_SoftMax();
+    
+    template<typename T> 
+    void forward(
+                global_handle* handle,
+                T* tensor,
+                size_t n1,
+                size_t n2,
+                int* mask = nullptr
+                );
+
+    void backward();
+
+    void update_weights();
+
+  private:
+    size_t warpsize;
+
+};
 
 #endif

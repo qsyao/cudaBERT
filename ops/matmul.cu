@@ -56,7 +56,7 @@ void deviceMatmul(cublasHandle_t handle, float *d_A,
     if (batchCount == -1)
     {
         cublasStatus_t ret =
-            cublasSgemm(handle, 
+            cublasSgemm_v2(handle, 
                         blas_transpose_b, 
                         blas_transpose_a,
                         n, 

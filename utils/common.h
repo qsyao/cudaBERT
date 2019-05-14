@@ -16,6 +16,8 @@
 #include <cuda_runtime.h>
 #include <cuda_fp16.h>
 
+#include <math.h>
+
 #include "../cnpy/cnpy.h"
 
 namespace {
@@ -157,7 +159,6 @@ void dump_tensor(std::string file_name,
                 size_t dim3=0,
                 size_t dim4=0,
                 size_t dim5=0);
-
 
 extern "C"
 struct Retval{
