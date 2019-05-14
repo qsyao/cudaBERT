@@ -54,8 +54,8 @@ def warp_inputs(indexed_tokens, segments_ids, attention_masks):
 tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 
 def test(is_large, model_dir, batchsize, seq_length, num_gpu=0):
-    Iters = 1
-    assert( seq_length * batchsize < 80 * 1000, "Seq_length * Batchsize is too large")
+    Iters = 100
+    #assert( seq_length * batchsize < 80 * 1000, "Seq_length * Batchsize is too large")
     max_length = batchsize * seq_length
 
     tokenized_text = ['who', 'was', 'jim', 'henson', '?', 'jim', '[MASK]', 'was', 'a', 'puppet', '##eer']
@@ -84,7 +84,7 @@ def test(is_large, model_dir, batchsize, seq_length, num_gpu=0):
     print("Batchsize: {} Seq_length: {} Use_Time: {}".format(batchsize, seq_length, (end - start)/Iters))
 
 if __name__ == "__main__":
-    test(False, "model_npy/base_uncased", 200, 128)
+    test(False, "model_npy/base_uncased", 1, 128)
 
 
 
