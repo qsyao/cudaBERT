@@ -45,7 +45,7 @@ class global_handle {
 
         cudaEvent_t copy_event;
 
-        std::string dir_npy = "model_npy/base_uncased";
+        std::string dir_npy = "/home/wenxh/zyc/model_npy/base_uncased";
         size_t hidden_size = 768;
         size_t num_hidden_layers = 12;
         size_t num_attention_heads = 12;
