@@ -39,6 +39,15 @@ class op_LayerNorm : public op_kernel{
                     step = 0;
                 }
             }
+            else if(handle->optim_method == "momentum") {
+                if(n != -1) {
+                    momentum_gamma_v = handle->global_malloc_manage_float.get_new_head_point(n);
+                    momentum_beta_v = handle->global_malloc_manage_float.get_new_head_point(n);
+                    learning_rate = handle->learning_rate;
+                    momentum_beta = handle->momentum_beta;
+                    step = 0;
+                }
+            }
         }
     }
 
@@ -74,10 +83,13 @@ class op_LayerNorm : public op_kernel{
 
     float beta_1;
     float beta_2;
+    float momentum_beta;
     float weight_decay_rate;
     float adam_epsilon;
     float beta_1_t;
     float beta_2_t;
+    float *momentum_gamma_v;
+    float *momentum_beta_v;
     float *gamma_m_t;
     float *gamma_v_t;
     float *beta_m_t;

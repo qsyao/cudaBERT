@@ -130,12 +130,13 @@ class malloc_manage {
         layer_start = head;
     }
 
-    void recerd_adam_start() {
-        adam_start = head;
+
+    void recerd_optim_start() {
+        optim_start = head;
     }
 
-    void reuse_adam_mem() {
-        head = adam_start;
+    void reuse_optim_mem() {
+        head = optim_start;
     }
 
     void reuse_layer_mem(){
@@ -152,7 +153,7 @@ private:
     long layer_start;
     long tot_size;
     long head;
-    long adam_start;
+    long optim_start;
 
 };
 

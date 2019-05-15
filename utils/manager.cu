@@ -40,6 +40,11 @@ void global_handle::set_optim_adam(float lr, float weightDecayLate, float beta1,
     optim_method = "adam";
 }
 
+void global_handle::set_optim_momentum(float lr, float beta) {
+    learning_rate = lr;
+    momentum_beta = beta;
+}
+
 global_handle::~global_handle(){
     global_malloc_manage_float.del();
     global_malloc_manage_int.del();

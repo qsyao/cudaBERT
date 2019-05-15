@@ -12,6 +12,8 @@ bert::bert(bool BERT_Large, int num_gpu, std::string dir, bool is_train, bool op
             handle->set_optim_sgd(lr);
         else if (optim_method == "adam")
             handle->set_optim_adam(lr);
+        else if (optim_method == "momentum")
+            handle->set_optim_momentum(lr);
     }
     init_ops();
 }
@@ -94,8 +96,8 @@ void bert::init_ops() {
 
     op_tanh = new op_Tanh(handle);
 
-    if(handle->is_train && handle->optim_method == "adam") {
-        handle->global_malloc_manage_float.recerd_adam_start();
+    if(handle->is_train) {
+        handle->global_malloc_manage_float.recerd_optim_start();
     }
 }
 
@@ -325,8 +327,8 @@ void bert::BERT_train(
     size_t intermediate_size = handle->intermediate_size;
 
     handle->set_scale(batchsize, seq_length);
-    if(handle->is_train && handle->optim_method == "adam") {
-        handle->global_malloc_manage_float.reuse_adam_mem();
+    if(handle->is_train) {
+        handle->global_malloc_manage_float.reuse_optim_mem();
         handle->global_malloc_manage_int.set_head_zero();
     }
     else {
@@ -501,9 +503,6 @@ float bert::classify_train(int *classes, float *pooler_out, size_t num_classes) 
     classify_linear->backward(loss->grad_input, handle->batchsize,
                               handle->hidden_size,
                               num_classes);
-
-//    debug_tensor_gpu<float>(std::string("classify_linear->bias"), classify_linear->bias, num_classes, num_classes);
-//    debug_tensor_gpu<float>(std::string("classify_linear->kernel"), classify_linear->kernel, num_classes, num_classes, handle->hidden_size);
 
 //    debug_tensor_gpu<float>(std::string("grad_input"), classify_linear->grad_input, 3, handle->hidden_size, handle->batchsize);
 //    debug_tensor_gpu<float>(std::string("grad_kernel"), classify_linear->grad_kernel, num_classes, num_classes, 3);

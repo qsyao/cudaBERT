@@ -212,7 +212,11 @@ model = BertForSequenceClassification.from_pretrained('bert-base-uncased', num_l
 
 model = model.cuda()
 min_loss = 1e18
-optimizer = optim.SGD(model.parameters(), lr=0.000001)
+def adjust_learning_rate(optimizer, decay_rate=.99):
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = param_group['lr'] * decay_rate
+
+optimizer = optim.SGD(model.parameters(), lr=0.001)
 
 outputRand = 0
 
@@ -283,6 +287,7 @@ for round in range(args.iterator):
         class_loss = model(input_ids_tensor, segment_ids_tensor, input_mask_tensor, classes_tensor)
         class_loss.backward()
         optimizer.step()
+        adjust_learning_rate(optimizer)
 
         now_loss += class_loss * (pre_end + 1)
 

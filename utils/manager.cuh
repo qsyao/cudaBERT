@@ -28,6 +28,8 @@ class global_handle {
         void set_optim_adam(float learning_rate = 0.001, float weight_decay_rate = 0.0, float beta_1 = 0.9,
                             float beta_2 = 0.999, float epsilon = 1e-8);
 
+        void set_optim_momentum(float lr = 0.001, float beat = 0.9);
+
         void init_cudamemory(int batchsize, int seq_length);
 
         void prepare_linear(global_handle *handle,
@@ -60,6 +62,7 @@ class global_handle {
         std::string optim_method = "sgd";
         bool optim_running_time = true;
         bool is_train = false;
+        float momentum_beta;
         float beta_1;
         float beta_2;
         float weight_decay_rate;

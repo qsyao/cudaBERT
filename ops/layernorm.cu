@@ -587,6 +587,13 @@ void op_LayerNorm::update_weights(size_t n) {
             step += 1;
         }
     }
+    else if(handle->optim_method == "momentum") {
+        if (gamma != NULL && beta != NULL) {
+            apply_momentum_running_time(gamma, grad_gamma, n, momentum_gamma_v, learning_rate, momentum_beta, handle, step);
+            apply_momentum_running_time(beta, grad_beta, n, momentum_beta_v, learning_rate, momentum_beta, handle, step);
+            step += 1;
+        }
+    }
 }
 
 template<typename T>

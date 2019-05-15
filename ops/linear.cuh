@@ -43,6 +43,14 @@ class op_Linear : public op_kernel{
                 epsilon = handle->epsilon;
                 step = 0;
             }
+            else if(handle->optim_method == "momentum") {
+                momentum_kernel_v = handle->global_malloc_manage_float.get_new_head_point(n1);
+                momentum_bias_v = handle->global_malloc_manage_float.get_new_head_point(n2);
+
+                learning_rate = handle->learning_rate;
+                momentum_beta = handle->momentum_beta;
+                step = 0;
+            }
         }
     }
 
@@ -80,6 +88,9 @@ public:
     float *kernel_v_t;
     float *bias_m_t;
     float *bias_v_t;
+    float *momentum_kernel_v;
+    float *momentum_bias_v;
+    float momentum_beta;
     int step = 0;
 public:
     float learning_rate;
@@ -144,6 +155,13 @@ public:
     float* val_kernel_v_t;
     float* val_bias_m_t;
     float* val_bias_v_t;
+    float* momentum_query_kernel_v;
+    float* momentum_query_bias_v;
+    float* momentum_key_kernel_v;
+    float* momentum_key_bias_v;
+    float* momentum_val_kernel_v;
+    float* momentum_val_bias_v;
+    float momentum_beta;
     int step = 0;
 
     float* batch_attentin_weights;

@@ -104,6 +104,20 @@ op_BatchedLinear::op_BatchedLinear(std::string key_query_kernel,
             epsilon = handle->epsilon;
             step = 0;
         }
+        else if(handle->optim_method == "momentum") {
+            momentum_query_kernel_v = handle->global_malloc_manage_float.get_new_head_point(n1);
+            momentum_query_bias_v = handle->global_malloc_manage_float.get_new_head_point(n2);
+
+            momentum_key_kernel_v = handle->global_malloc_manage_float.get_new_head_point(n1);
+            momentum_key_bias_v = handle->global_malloc_manage_float.get_new_head_point(n2);
+
+            momentum_val_kernel_v = handle->global_malloc_manage_float.get_new_head_point(n1);
+            momentum_val_bias_v = handle->global_malloc_manage_float.get_new_head_point(n2);
+
+            learning_rate = handle->learning_rate;
+            momentum_beta = handle->momentum_beta;
+            step = 0;
+        }
     }
 }
 
@@ -288,6 +302,11 @@ void op_Linear::update_weights(size_t n1, size_t n2) {
         beta_2_t = beta_2_t * beta_2;
         step += 1;
     }
+    else if(handle->optim_method == "momentum") {
+        apply_momentum_running_time(kernel, grad_kernel, n1, momentum_kernel_v, learning_rate, momentum_beta, handle, step);
+        apply_momentum_running_time(bias, grad_bias, n2, momentum_bias_v, learning_rate, momentum_beta, handle, step);
+        step += 1;
+    }
 }
 
 template<typename T>
@@ -448,6 +467,17 @@ void op_BatchedLinear::update_weights(size_t n1, size_t n2) {
 
         beta_1_t = beta_1_t * beta_1;
         beta_2_t = beta_2_t * beta_2;
+        step += 1;
+    }
+    else if(handle->optim_method == "momentum") {
+        apply_momentum_running_time(query_kernel, grad_query_kernel, n1, momentum_query_kernel_v, learning_rate, momentum_beta, handle, step);
+        apply_momentum_running_time(key_kernel, grad_key_kernel, n1, momentum_key_kernel_v, learning_rate, momentum_beta, handle, step);
+        apply_momentum_running_time(val_kernel, grad_val_kernel, n1, momentum_val_kernel_v, learning_rate, momentum_beta, handle, step);
+
+        apply_momentum_running_time(query_bias, grad_query_bias, n2, momentum_query_bias_v, learning_rate, momentum_beta, handle, step);
+        apply_momentum_running_time(key_bias, grad_key_bias, n2, momentum_key_bias_v, learning_rate, momentum_beta, handle, step);
+        apply_momentum_running_time(val_bias, grad_val_bias, n2, momentum_val_bias_v, learning_rate, momentum_beta, handle, step);
+
         step += 1;
     }
 }

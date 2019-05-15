@@ -165,7 +165,7 @@ void convert_batch_example(void *tokenizer, int batch_size,
 extern "C" {
 
 bert *init_model(bool large = false, int num_gpu = 0, std::string dir = "", bool is_train = false, float lr = 0.001,
-                 std::string optim = "sgd", bool optimRunningTime = true, int num_classes = 2) {
+                 std::string optim = "momentum", bool optimRunningTime = true, int num_classes = 2) {
     bert *ret = new bert(large, num_gpu, dir, is_train, optimRunningTime, num_classes, optim, lr);
     return ret;
 }
@@ -341,6 +341,8 @@ void bert_train(int batchsize, int seq_length, int nIter, bool base, int num_gpu
     double min_loss = 1e18;
     int num_labels = 2;
     int outputRand = 0;
+    float learning_rate = 0.001;
+    float learning_rate_decay = 0.99;
     for (int i = 0; i < nIter; i++) {
 //         TODO: random
 //        random_shuffle(text_id.begin(), text_id.end(), generateSeed);
@@ -388,6 +390,8 @@ void bert_train(int batchsize, int seq_length, int nIter, bool base, int num_gpu
             int tmp_batchsize = min( (j+1) * batchsize, tot_line_len) - j * batchsize;
             model->handle->batchsize = tmp_batchsize;
 
+            model->update_lr_start(learning_rate);
+
             float loss = cuda_classify_train(
                     model,
                     input_ids,
@@ -399,6 +403,8 @@ void bert_train(int batchsize, int seq_length, int nIter, bool base, int num_gpu
                     input_mask
             );
 
+            learning_rate *= learning_rate_decay;
+            model->update_lr_end();
             now_loss += loss * tmp_batchsize;
 
 //            std::cout << "temp batch loss: " << (*cpu_mem) << std::endl;

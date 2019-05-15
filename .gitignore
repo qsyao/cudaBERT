@@ -10,7 +10,6 @@ cmake*
 CMakeCache.txt
 CMakeFiles/
 Makefile
-test_pytorch.py
 unit_test
 cnpy/cmake_install.cmake
 cnpy/CMakeFiles/

@@ -13,6 +13,29 @@ void apply_sgd_running_time(float *input, float *grad, size_t n, float learning_
     cu_apply_sgd_running_time << < blocks, threads, 0, handle->cal_stream >> > (input, grad, n, learning_rate);
 }
 
+__global__ void cu_apply_momentum_running_time(float *input, float *grad, size_t n, float *v, float lr, float beta, int step) {
+    for (size_t i = blockIdx.x * blockDim.x + threadIdx.x; i < n; i += gridDim.x * blockDim.x) {
+        if(step == 0)
+            v[i] = grad[i];
+        else
+            v[i] = beta * v[i] + grad[i];
+        input[i] -= lr * v[i];
+//        if(step == 0)
+//            v[i] = lr * grad[i];
+//        else
+//            v[i] = beta * v[i] + lr * grad[i];
+//        input[i] -= v[i];
+    }
+    __syncthreads();
+}
+
+void apply_momentum_running_time(float *input, float *grad, size_t n, float *v, float learning_rate, float beta, global_handle *handle, int step) {
+
+    dim3 threads(1024, 1, 1);
+    dim3 blocks(min((long) 65535, n / 1024 + 1), 1, 1);
+    cu_apply_momentum_running_time << < blocks, threads, 0, handle->cal_stream >> > (input, grad, n, v, learning_rate, beta, step);
+}
+
 __global__ void cu_apply_sgd_running_time(float *input, float *grad, size_t n, float *m_t, float *v_t, float beta_1_t,
                                           float beta_2_t, float learning_rate_t, float weight_decay_rate,
                                           float beta_1,
