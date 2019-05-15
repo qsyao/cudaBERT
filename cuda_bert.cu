@@ -40,6 +40,23 @@ Retval Cuda_Inference(bert* model,
     return model->ret;
 }
 
+void Cuda_Bert (bert* model,
+                    float* output,
+                    int* words,
+                    int* token_types,
+                    int batchsize,
+                    int seq_length,
+                    int* attention_mask){
+    model->BERT_Inference(  words,
+                            token_types,
+                            batchsize,
+                            seq_length,
+                            attention_mask);
+
+    model->get_gpu_result(output, model->ret.pooled_output, 
+                batchsize * model->handle->hidden_size);
+}
+
 void Cuda_Classify (bert* model,
                     float* output,
                     int* words,

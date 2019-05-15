@@ -255,7 +255,7 @@ float *bert::classify_inference(size_t num_classes) {
                              handle->hidden_size,
                              num_classes);
     
-    classify_softmax->forward(handle, classify_out, handle->batchsize, num_classes);
+    //classify_softmax->forward(handle, classify_out, handle->batchsize, num_classes);
 
     return classify_out;
 }
