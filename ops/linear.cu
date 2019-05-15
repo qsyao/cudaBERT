@@ -1,5 +1,6 @@
 #include "linear.cuh"
 #include "matmul.cuh"
+#include "shfl.cuh"
 
 template<typename T>
 __global__ void MemoryCpyLinear(T *out, T *in, size_t max, size_t warpsize, float mul) {
@@ -177,21 +178,48 @@ void op_Linear::forward<float>(
         bool debug);
 
 
-template<typename T>
-__global__ void MemoryCpyLinearTranpose(T *out, T *in, int n, int m, int max) {
-    for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < max; i += gridDim.x * blockDim.x) {
-        out[(i % m) * n + i / m] = in[i];
+template<typename T> __device__ __forceinline__
+void cuWelfordSum(
+        const T *vals,
+        const int n1,
+        const int n2,
+        T &sum) {
+    sum = T(0);
+    // one warp normalizes one n1 index,
+    // synchronization is implicit
+    // initialize with standard Welford algorithm
+    const int numx = blockDim.x;
+    const int thrx = threadIdx.x;
+    int l = 4 * thrx;
+    for (; l + 3 < n1; l += 4 * numx) {
+        for (int k = 0; k < 4; ++k) {
+            T curr = static_cast<T>(vals[blockIdx.x + n2 * (l+k)]);
+            sum += curr;
+        }
     }
-    __syncthreads();
+    for (; l < n1; ++l) {
+        T curr = static_cast<T>(vals[blockIdx.x + n2 * l]);
+        sum += curr;
+    }
+    // intra-warp reductions
+    for (int l = 0; l <= 4; ++l) {
+        int srcLaneB = (threadIdx.x + (1 << l)) & 31;
+        T sumB = WARP_SHFL(sum, srcLaneB);
+        sum += sumB;
+    }
+    // threadIdx.x == 0 has correct values for each warp
+    // inter-warp reductions{
+    sum = WARP_SHFL(sum, 0);
+
 }
 
 template<typename T>
 __global__ void cuApplyLinearGradientBias(T *__restrict__ dout, T *grad_bias, const size_t n1, const size_t n2) {
-    for (int i2 = threadIdx.x; i2 < n2; i2 += blockDim.x) {
-        grad_bias[i2] = 0;
-        for (int i1 = 0; i1 < n1; i1++)
-            grad_bias[i2] += dout[i1 * n2 + i2];
-    }
+    // gridDim.x == n2
+    T sum = 0;
+    cuWelfordSum(dout, n1, n2, sum);
+    if(threadIdx.x == 0)
+        grad_bias[blockIdx.x] = sum;
     __syncthreads();
 }
 
@@ -231,10 +259,10 @@ linearBackward(T *dout, T *kernel, T *stored_input, T *grad_input, T *grad_kerne
            1.0f,
            0.0f);
 
-    dim3 threads2(min((long) 1024, m), 1, 1);
-    dim3 blocks2(1, 1, 1);
-    cuApplyLinearGradientBias << < blocks2, threads2, 0, handle->cal_stream >> > (
-            dout,
+    dim3 threads2(32, 1, 1);
+    dim3 blocks2(m, 1, 1);
+    cuApplyLinearGradientBias <<< blocks2, threads2, 0, handle->cal_stream >>> (
+                    dout,
                     grad_bias,
                     n,
                     m);
