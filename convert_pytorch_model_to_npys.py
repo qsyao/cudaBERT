@@ -18,9 +18,9 @@ parser.add_argument("--init_checkpoint",
                     help="Initial checkpoint (usually from a pre-trained BERT model).")
 
 parser.add_argument("--output_dir",
-                    default="./model_dir/pytorch_model_v5.bin",
+                    default="./model_npy",
                     type=str,
-                    help="Output npys.")
+                    help="Output npys pth.")
 
 args = parser.parse_args()
 
