@@ -57,3 +57,13 @@ The additional layer is Linear + Softmax
 ```shell
 python engine.py --input_file ./data/small_v6_label_data.tsv --output_file ./data/test.tsv --gpu 0
 ```
+
+## Name.txt
+Described in name.txt; 
+
+Names of other layers are like layer_0
+
+## Reference
+[torch_bert](https://github.com/huggingface/pytorch-pretrained-BERT)
+
+[cnpy](https://github.com/rogersce/cnpy)
