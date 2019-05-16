@@ -21,7 +21,11 @@
 extern "C"
 class bert {
     public:
-        bert (bool BERT_Large=false, int num_gpu = 0, std::string dir = "");
+        bert (bool BERT_Large=false, 
+              int num_gpu = 0, 
+              std::string dir = "",
+              int max_batchsize = 0,
+              int max_seq_length = 0);
         //TODO　Muti_GPU
 
         ~bert(){

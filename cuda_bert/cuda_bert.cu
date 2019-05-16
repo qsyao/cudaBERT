@@ -20,8 +20,12 @@ int* filling_inputs(int* tensor, int seq_length, int start_length, int batchsize
 
 extern "C"{
 
-bert* init_model(bool large = false, int num_gpu=0, char dir[] = ""){
-    bert* ret = new bert(large, num_gpu, dir);
+bert* init_model(bool large = false, 
+                 int num_gpu = 0, 
+                 int max_batchsize = 0,
+                 int max_seq_length = 0,
+                 char dir[] = ""){
+    bert* ret = new bert(large, num_gpu, dir, max_batchsize, max_seq_length);
     return ret;
 }
 
@@ -77,14 +81,13 @@ void Cuda_Classify (bert* model,
 }
 
 void test(int batchsize, int seq_length, int nIter, bool base, int num_gpu){
-    bert* model = init_model(base, num_gpu);
+    bert* model = init_model(base, num_gpu, 128, 512);
 
     int test_word_id_seed[11] = {2040, 2001, 3958, 27227, 1029, 3958, 103,
                                2001, 1037, 13997, 11510};
     int test_token_type_id_seed[11] = {0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1};
 
     int attention_mask[11] = {1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0};
-    int classes[4] = {1, 1, 1, 1};
 
     int *test_word_id, *test_token_type_id, *test_attention_mask;
     test_word_id = filling_inputs(test_word_id_seed, seq_length, 11, batchsize);
@@ -126,7 +129,7 @@ void test(int batchsize, int seq_length, int nIter, bool base, int num_gpu){
     for(int i = 0; i < nIter; i++){
         float it_time;
         cudaEventRecord(start);
-        float * output;
+        // float * output;
         // cuda_classify(
         //         model,
         //         output,

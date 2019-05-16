@@ -1,9 +1,13 @@
 #include "bert.cuh"
 #include "load_model.h"
 
-bert::bert (bool BERT_Large, int num_gpu, std::string dir) {
+bert::bert (bool BERT_Large, 
+              int num_gpu, 
+              std::string dir,
+              int max_batchsize,
+              int max_seq_length) {
     checkCudaErrors(cudaSetDevice(num_gpu));
-    handle = new global_handle(BERT_Large, dir);
+    handle = new global_handle(BERT_Large, dir, max_batchsize, max_seq_length);
     init_ops();
 }
 

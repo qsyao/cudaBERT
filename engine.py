@@ -53,15 +53,15 @@ parser.add_argument("--vocab_file",
 parser.add_argument("--queue_size",
                     default=100,
                     type=int,
-                    help="The vocabulary file that the BERT model was trained on.")
+                    help="Queue Size")
 parser.add_argument("--alert_size",
                     default=1000000,
                     type=int,
-                    help="The vocabulary file that the BERT model was trained on.")
+                    help="Too much cache will crash down the memory")
 parser.add_argument("--split_size",
                     default=2,
                     type=int,
-                    help="The vocabulary file that the BERT model was trained on.")
+                    help="split_size")
 parser.add_argument('--cubert_pth',
                     type=str,
                     default="../cuda",
@@ -298,7 +298,8 @@ def engine_model(handle, num_gpu):
     '''
     custom_layer = init_custom_layer(args.hidden_size)
     custom_layer = custom_layer.cuda('cuda:' + str(num_gpu))
-    model = load_model(args.is_large, args.model_npy_pth, num_gpu) 
+    model = load_model(args.is_large, args.model_npy_pth, num_gpu,\
+                                args.batch_size, args.max_seq_length) 
 
     start = time.time()
     total_length = 0

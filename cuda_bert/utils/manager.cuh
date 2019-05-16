@@ -19,7 +19,10 @@
 extern "C"
 class global_handle {
     public:
-        global_handle (bool BERT_Large=false, std::string dir = "");
+        global_handle (bool BERT_Large,
+                       std::string dir,
+                       int input_max_batchsize,
+                       int input_max_seq_length);
 
         ~global_handle();
 
