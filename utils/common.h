@@ -114,8 +114,9 @@ class malloc_manage {
         checkCudaErrors(cudaMalloc((void **)&point_head, tot_size * sizeof(T)));
         return ;
     }
+
     T *get_new_head_point(long t_size = 0) {
-//        std::cout << "head: " << head << " new_head: " << head + t_size << " tot_size: " << tot_size << std::endl;
+//        std::cout << "PPPPP head: " << head << " new_head: " << head + t_size << " tot_size: " << tot_size << std::endl;
         T* now = point_head + head;
         head += t_size;
         assert(head <= tot_size);
@@ -148,7 +149,7 @@ class malloc_manage {
         return ;
     }
 
-private:
+public:
     T *point_head;
     long layer_start;
     long tot_size;

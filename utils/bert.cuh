@@ -16,6 +16,7 @@
 #include "../utils/common.h"
 #include "../ops/elementwise.cuh"
 #include "../ops/op_kernel.cuh"
+#include "../ops/dropout.cuh"
 #include "../ops/crossEntropyLoss.cuh"
 
 extern "C"
@@ -77,9 +78,14 @@ class bert {
         std::vector<op_LayerNorm*> attention_layernorm;
         std::vector<op_LayerNorm*> output_layernorm;
         Embedding* embedding;
+        op_Dropout* embedding_dropout;
         std::vector<op_Linear*> output_linear;
         op_Linear* pooler_linear;
         op_Linear* classify_linear;
+        op_Dropout* pooler_dropout;
+        std::vector<op_Dropout*> output_dropout;
+        std::vector<op_Dropout*> self_output_dropout;
+        std::vector<op_Dropout*> self_attention_dropout;
         std::vector<op_Linear*> attention_linear;
         std::vector<op_Linear*> intermediate_linear;
         std::vector<op_BatchedLinear*> batched_linear;

@@ -40,6 +40,7 @@ set(SOURCE_FILES
         optim/optim.cu
         ops/elementwise.cu
         ops/embedding.cu
+        ops/dropout.cu
         ops/layernorm.cu
         ops/linear.cu
         ops/matmul.cu
@@ -50,6 +51,7 @@ set(SOURCE_FILES
 
 cuda_add_library(cudaBERT SHARED ${SOURCE_FILES})
 add_dependencies(cudaBERT cnpy)
+target_link_libraries(cudaBERT cudnn)
 target_link_libraries(cudaBERT cnpy ${cudaBERT_EXTERNAL_LIBRARIES})
 
 cuda_add_executable(unit_test test/test.cpp)

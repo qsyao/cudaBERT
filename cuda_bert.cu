@@ -517,3 +517,8 @@ void test_train(int batchsize, int seq_length, int nIter, bool base, int num_gpu
     printf("Time= %.2f(ms)\n", dSeconds);
 }
 }
+
+//int main() {
+//    test_train(8, 128, 30, false);
+//}
+//// nvcc cuda_bert.cu -o test -lcublas -I /usr/local/cuda-9.0/samples/common/inc/ -lcnpy -L ./ --std=c++11 -lcudnn

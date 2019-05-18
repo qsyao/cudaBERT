@@ -47,7 +47,7 @@ class global_handle {
 
         cudaEvent_t copy_event;
 
-        std::string dir_npy = "model_npy/base_uncased";
+        std::string dir_npy = "/home/wenxh/zyc/model_npy/base_uncased";
         size_t hidden_size = 768;
         size_t num_hidden_layers = 12;
         size_t num_attention_heads = 12;
@@ -58,6 +58,8 @@ class global_handle {
         size_t max_seq_length = 512;
         size_t max_mem_size = 200 * 512;
         float learning_rate = 0.001;
+        float hidden_dropout_prob = 0.1;
+        float attention_probs_dropout_prob = 0.1;
         bool update_learning_rate = false;
         std::string optim_method = "sgd";
         bool optim_running_time = true;

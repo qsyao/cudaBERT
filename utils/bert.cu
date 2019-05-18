@@ -20,6 +20,8 @@ bert::bert(bool BERT_Large, int num_gpu, std::string dir, bool is_train, bool op
 
 void bert::init_ops() {
 
+    std::cout << "handle->global_malloc_manage_float->head " << handle->global_malloc_manage_float.head << std::endl;
+
     for (int i = 0; i < handle->num_hidden_layers; i++) {
         std::string num_layer = "_" + std::to_string(i) + "_";
 
@@ -78,7 +80,28 @@ void bert::init_ops() {
 
         op_Gelu *op_gelu = new op_Gelu(handle);
         gelu.push_back(op_gelu);
+
+        if (handle->is_train) {
+            std::cout << "handle->global_malloc_manage_float->head " << handle->global_malloc_manage_float.head << std::endl;
+
+            if (handle->hidden_dropout_prob >= 0 && handle->hidden_dropout_prob < 1) {
+                // BertOutput dropout
+                op_Dropout *dropout = new op_Dropout(handle->hidden_dropout_prob, handle);
+                output_dropout.push_back(dropout);
+
+                // BertSelfOutput dropout
+                dropout = new op_Dropout(handle->hidden_dropout_prob, handle);
+                self_output_dropout.push_back(dropout);
+            }
+
+            if (handle->attention_probs_dropout_prob >= 0 && handle->attention_probs_dropout_prob < 1) {
+                // BertSelfAttention dropout
+                op_Dropout *dropout = new op_Dropout(handle->attention_probs_dropout_prob, handle);
+                self_attention_dropout.push_back(dropout);
+            }
+        }
     }
+
 
     pooler_linear = new op_Linear("pooler_dense_kernel",
                                   "pooler_dense_bias",
@@ -94,9 +117,16 @@ void bert::init_ops() {
 
     embedding = new Embedding(handle);
 
+    if (handle->is_train && handle->hidden_dropout_prob >= 0 && handle->hidden_dropout_prob < 1) {
+        // pooler dropout
+        pooler_dropout = new op_Dropout(handle->hidden_dropout_prob, handle);
+        // embedding dropout
+        embedding_dropout = new op_Dropout(handle->hidden_dropout_prob, handle);
+    }
+
     op_tanh = new op_Tanh(handle);
 
-    if(handle->is_train) {
+    if (handle->is_train) {
         handle->global_malloc_manage_float.recerd_optim_start();
     }
 }
@@ -326,12 +356,14 @@ void bert::BERT_train(
     size_t num_attention_heads = handle->num_attention_heads;
     size_t intermediate_size = handle->intermediate_size;
 
+                std::cout << "handle->global_malloc_manage_float->head " << handle->global_malloc_manage_float.head << std::endl;
+
     handle->set_scale(batchsize, seq_length);
-    if(handle->is_train) {
+    if (handle->is_train) {
         handle->global_malloc_manage_float.reuse_optim_mem();
         handle->global_malloc_manage_int.set_head_zero();
-    }
-    else {
+        std::cout << "handle->global_malloc_manage_float->head " << handle->global_malloc_manage_float.head << std::endl;
+    } else {
         handle->reset();
     }
     int *positions;
@@ -345,6 +377,13 @@ void bert::BERT_train(
 //    debug_tensor_gpu<float>(std::string("embedding_out"), embedding_out, 3, handle->hidden_size, 3);
 
     float *tensor_layer = embedding_out, *temp;
+    float *embedding_dropout_out, *self_attention_dropout_out, *self_output_dropout_out;
+
+    if (handle->is_train && embedding_dropout->dropRate >= 0 && embedding_dropout->dropRate < 1) {
+        embedding_dropout->forward(embedding_dropout_out, embedding_out,
+                                   handle->batchsize * handle->seq_length * handle->hidden_size);
+        tensor_layer = embedding_dropout_out;
+    }
 
     for (int i = 0; i < handle->num_hidden_layers; i++) {
         // start of Attention
@@ -375,13 +414,19 @@ void bert::BERT_train(
                               false,
                               true);
 
-//        std::cout << "222222" << std::endl;
-
         mask[i]->forward(query_key_gemm, attention_mask, sqrt(handle->hidden_size / handle->num_attention_heads));
 
         softmax[i]->forward(query_key_gemm,
                             batchsize * num_attention_heads * seq_length,
                             seq_length);
+
+        // TODO: BertSelfAttention dropout
+        if (handle->is_train && self_attention_dropout[i]->dropRate >= 0 && self_attention_dropout[i]->dropRate < 1) {
+            self_attention_dropout[i]->forward(self_attention_dropout_out, query_key_gemm,
+                                               handle->batchsize * handle->num_attention_heads * handle->seq_length *
+                                               handle->seq_length);
+            query_key_gemm = self_attention_dropout_out;
+        }
 
         float *attention;
         head_value[i]->forward(batchsize * num_attention_heads,
@@ -403,6 +448,13 @@ void bert::BERT_train(
                                      hidden_size,
                                      hidden_size);
         merge_heads_out = temp;
+
+        // TODO: BertSelfOutput dropout
+        if (handle->is_train && self_output_dropout[i]->dropRate >= 0 && self_output_dropout[i]->dropRate < 1) {
+            self_output_dropout[i]->forward(self_output_dropout_out, merge_heads_out,
+                                            handle->batchsize * handle->seq_length * handle->hidden_size);
+            merge_heads_out = self_output_dropout_out;
+        }
 
         float *attention_layernorm_out;
         attention_layernorm[i]->forward(attention_layernorm_out,
@@ -430,6 +482,15 @@ void bert::BERT_train(
                                   intermediate_size,
                                   hidden_size);
 
+        // TODO: output_dropout
+        if (handle->is_train && output_dropout[i]->dropRate >= 0 && output_dropout[i]->dropRate < 1) {
+            float *output_dropout_out;
+            output_dropout[i]->forward(output_dropout_out, output_out,
+                                       handle->batchsize * handle->seq_length * handle->hidden_size);
+            output_out = output_dropout_out;
+        }
+
+
         float *output_layernorm_out;
         output_layernorm[i]->forward(output_layernorm_out,
                                      output_out,
@@ -455,10 +516,7 @@ void bert::BERT_train(
                            hidden_size,
                            hidden_size);
 
-//    debug_tensor_gpu<float>(std::string("pooler_out"), pooler_out, 10, handle->hidden_size, 1);
-
     op_tanh->forward(pooler_out, batchsize * hidden_size);
-//    debug_tensor_gpu<float>(std::string("pooler_out"), pooler_out, 10, handle->hidden_size, 1);
 
     // Pooler End
 
@@ -469,6 +527,15 @@ void bert::BERT_train(
 float bert::classify_train(int *classes, float *pooler_out, size_t num_classes) {
     float *loss_out;
     float *classify_out;
+
+    if (handle->is_train && pooler_dropout->dropRate >= 0 && pooler_dropout->dropRate < 1) {
+        std::cout << "pooler_dropout->dropRate " << pooler_dropout->dropRate << std::endl;
+        float *pooler_dropout_out;
+        debug_tensor_gpu<float>(std::string("pooler_out"), pooler_out, 3, handle->hidden_size, handle->batchsize);
+        pooler_dropout->forward(pooler_dropout_out, pooler_out, handle->batchsize * handle->hidden_size);
+        debug_tensor_gpu<float>(std::string("pooler_dropout_out"), pooler_dropout_out, 3, handle->hidden_size, handle->batchsize);
+        pooler_out = pooler_dropout_out;
+    }
 
     classify_linear->forward(classify_out,
                              pooler_out,
@@ -484,9 +551,9 @@ float bert::classify_train(int *classes, float *pooler_out, size_t num_classes) 
     loss->forward(loss_out, classify_out, calsses_gpu, handle->batchsize, num_classes);
 //    debug_tensor_gpu<float>(std::string("loss_out"), loss_out, handle->batchsize + 1, handle->batchsize + 1);
 
-    float * cpu_mem;
-    cpu_mem = (float *)malloc(sizeof(float) * 1);
-    checkCudaErrors(cudaMemcpyAsync(cpu_mem, loss_out + handle->batchsize, sizeof(float)*1, cudaMemcpyDeviceToHost));
+    float *cpu_mem;
+    cpu_mem = (float *) malloc(sizeof(float) * 1);
+    checkCudaErrors(cudaMemcpyAsync(cpu_mem, loss_out + handle->batchsize, sizeof(float) * 1, cudaMemcpyDeviceToHost));
 
     float loss_return = (*cpu_mem);
 
@@ -508,7 +575,13 @@ float bert::classify_train(int *classes, float *pooler_out, size_t num_classes) 
 //    debug_tensor_gpu<float>(std::string("grad_kernel"), classify_linear->grad_kernel, num_classes, num_classes, 3);
 //    debug_tensor_gpu<float>(std::string("grad_bias"), classify_linear->grad_bias, num_classes, num_classes);
 
-    op_tanh->backward(classify_linear->grad_input, handle->batchsize * handle->hidden_size);
+    float *deal_dropout = classify_linear->grad_input;
+    if (handle->is_train && pooler_dropout->dropRate >= 0 && pooler_dropout->dropRate < 1) {
+        pooler_dropout->backward(classify_linear->grad_input);
+        deal_dropout = pooler_dropout->grad_input;
+    }
+
+    op_tanh->backward(deal_dropout, handle->batchsize * handle->hidden_size);
 //    debug_tensor_gpu<float>(std::string("op_tanh"), op_tanh->grad_input, 3, handle->hidden_size, handle->batchsize);
 
     pooler_linear->backward(op_tanh->grad_input, handle->batchsize, handle->hidden_size, handle->hidden_size);
@@ -547,7 +620,13 @@ float bert::classify_train(int *classes, float *pooler_out, size_t num_classes) 
 //            debug_tensor_gpu<float>(std::string("output_linear[i]->bias"), output_linear[i]->bias, 3,
 //                                    handle->hidden_size, 1);
 
-        output_linear[i]->backward(output_layernorm[i]->grad_input, handle->batchsize * handle->seq_length,
+        deal_dropout = output_layernorm[i]->grad_input;
+        if (handle->is_train && output_dropout[i]->dropRate >= 0 && output_dropout[i]->dropRate < 1) {
+            output_dropout[i]->backward(output_layernorm[i]->grad_input);
+            deal_dropout = output_dropout[i]->grad_input;
+        }
+
+        output_linear[i]->backward(deal_dropout, handle->batchsize * handle->seq_length,
                                    handle->intermediate_size, handle->hidden_size);
 
 //        debug_tensor_gpu<float>(std::string("output_linear[i]->grad_input"), output_linear[i]->grad_input, 3, handle->intermediate_size, handle->batchsize * handle->seq_length);
@@ -584,9 +663,15 @@ float bert::classify_train(int *classes, float *pooler_out, size_t num_classes) 
         attention_layernorm[i]->backward(intermediate_linear[i]->grad_input, handle->batchsize * handle->seq_length,
                                          handle->hidden_size);
 
+        deal_dropout = attention_layernorm[i]->grad_input;
+        if (handle->is_train && self_output_dropout[i]->dropRate >= 0 && self_output_dropout[i]->dropRate < 1) {
+            self_output_dropout[i]->backward(attention_layernorm[i]->grad_input);
+            deal_dropout = self_output_dropout[i]->grad_input;
+        }
+
 //        debug_tensor_gpu<float>(std::string("attention_layernorm[i]->grad_input"), attention_layernorm[i]->grad_input, 3, handle->hidden_size, handle->batchsize * handle->seq_length);
 
-        attention_linear[i]->backward(attention_layernorm[i]->grad_input, handle->batchsize * handle->seq_length,
+        attention_linear[i]->backward(deal_dropout, handle->batchsize * handle->seq_length,
                                       handle->hidden_size, handle->hidden_size);
 
 //        debug_tensor_gpu<float>(std::string("attention_linear[i]->grad_input"), attention_linear[i]->grad_input, 3, handle->hidden_size, handle->batchsize * handle->seq_length);
@@ -607,8 +692,14 @@ float bert::classify_train(int *classes, float *pooler_out, size_t num_classes) 
 //        debug_tensor_gpu<float>(std::string("head_value[i]->grad_kernel"), head_value[i]->grad_kernel, 3,
 //                                handle->seq_length * handle->hidden_size / handle->num_attention_heads,
 //                                handle->batchsize * handle->num_attention_heads);
+        deal_dropout = head_value[i]->grad_input;
+        if (handle->is_train && self_attention_dropout[i]->dropRate >= 0 && self_attention_dropout[i]->dropRate < 1) {
+            self_attention_dropout[i]->backward(head_value[i]->grad_input);
+            deal_dropout = self_attention_dropout[i]->grad_input;
+        }
 
-        softmax[i]->backward(head_value[i]->grad_input,
+
+        softmax[i]->backward(deal_dropout,
                              handle->batchsize * handle->num_attention_heads * handle->seq_length,
                              handle->seq_length);
 
@@ -715,5 +806,10 @@ float bert::classify_train(int *classes, float *pooler_out, size_t num_classes) 
         if (handle->optim_running_time)
             handle->global_malloc_manage_float.reuse_layer_mem();
     }
+
+    if (handle->is_train && embedding_dropout->dropRate >= 0 && embedding_dropout->dropRate < 1) {
+        embedding_dropout->backward(tensor_layer_grad_input);
+    }
+
     return loss_return;
 }
