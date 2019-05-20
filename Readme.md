@@ -40,22 +40,24 @@ python convert_pytorch_model_to_npys.py --bert_config_file model_dir/bert_config
 ### Step 3
 Define your own functions:
 
-- Custom additional layer: In custom.py , take output tensor from bert : [batchsize, hidden_size]
+- Custom additional layer: In custom.py , take output numpy.array from bert : [batchsize, hidden_size]
 - Your own Preprocess functions(define in preprocess.py) to process lines of your own input_file to tagged_line(defined in utils.py), Prepare line_index, line_data(raw string), segment_id, input_id and mask.
 - Your funcitons to write line to output_file(defined in utils.py), it takes the raw_line and your output_string as input and returns a string.
 
 ### Step 4 
-Run engine.py
+New class engine and set cuda_model, custom_layer, preproecess_function, output_line in main.py
+
+Run main.py
 
 Input your GPU_ID by --gpu 0 1 2 3
 
 ### Example
-After Step 1 and Step2, we release an example to process ./data/example.tsv to ./data/example.tsv. 
+After Step 1 and Step2, we release an example to process ./data/example.tsv to ./data/example.tsv. (Step 3 is set to deal with input file)
 
 The additional layer is Linear + Softmax
 
 ```shell
-python engine.py --input_file ./data/small_v6_label_data.tsv --output_file ./data/test.tsv --gpu 0
+python main.py --input_file ./data/small_v6_label_data.tsv --output_file ./data/test.tsv --gpu 0
 ```
 
 ## Name.txt
