@@ -34,7 +34,6 @@ public:
 public:
     op_Dropout(float dropR, global_handle *handle) :
             dropRate(dropR), op_kernel(handle) {
-        std::cout << "PPPPPP" << std::endl;
         //TODO
         checkCUDNN(cudnnCreate(&cudnn));
         checkCUDNN(cudnnCreateDropoutDescriptor(&dropout_desc_));
@@ -50,7 +49,7 @@ public:
                                   dropRate,
                                   states_data,
                                   states_size_in_bytes_,
-                /*Seed*/1));
+                /*Seed*/time(NULL)));
     };
 
     template<typename T>

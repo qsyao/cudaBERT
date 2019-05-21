@@ -685,7 +685,7 @@ float bert::classify_train(int *classes, float *pooler_out, size_t num_classes) 
         tensor_layer_grad_input = embedding_dropout->grad_input;
     }
 
-    embedding->backward(tensor_layer_grad_input);
+//    embedding->backward(tensor_layer_grad_input);
 
     return loss_return;
 }

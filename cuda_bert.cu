@@ -165,7 +165,7 @@ void convert_batch_example(void *tokenizer, int batch_size,
 extern "C" {
 
 bert *init_model(bool large = false, int num_gpu = 0, std::string dir = "", bool is_train = false, float lr = 0.001,
-                 std::string optim = "sgd", bool optimRunningTime = true, int num_classes = 2) {
+                 std::string optim = "momentum", bool optimRunningTime = true, int num_classes = 2) {
     bert *ret = new bert(large, num_gpu, dir, is_train, optimRunningTime, num_classes, optim, lr);
     return ret;
 }
