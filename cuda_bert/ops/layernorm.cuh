@@ -18,7 +18,10 @@ class op_LayerNorm : public op_kernel{
         beta = tt->gpu_mem;
     }
 
-    ~op_LayerNorm();
+    ~op_LayerNorm(){
+      checkCudaErrors(cudaFree(gamma));
+      checkCudaErrors(cudaFree(beta));
+    }
 
     template<typename T> 
     void forward(

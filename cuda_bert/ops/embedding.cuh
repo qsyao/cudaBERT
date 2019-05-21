@@ -20,7 +20,12 @@ class Embedding : public op_kernel{
         token_type_embedding = look_up_tts(handle->tts, keys)->gpu_mem; 
 }
 
-    ~Embedding();
+    ~Embedding(){
+      checkCudaErrors(cudaFree(word_embedding));
+      checkCudaErrors(cudaFree(position_embedding));
+      checkCudaErrors(cudaFree(token_type_embedding));
+      delete layernorm;
+    }
 
     template <typename T>
     void forward (

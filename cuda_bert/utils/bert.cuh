@@ -29,6 +29,20 @@ class bert {
         //TODO　Muti_GPU
 
         ~bert(){
+
+            for(int i = 0; i < handle->num_hidden_layers; i++){
+                delete attention_layernorm[i];
+                delete output_layernorm[i];
+                delete output_linear[i];
+                delete intermediate_linear[i];
+                delete batched_linear[i];
+                delete attention_linear[i];
+                delete query_key[i];
+                delete prob_value[i];           
+            }
+            delete embedding;
+            delete pooler_linear;
+            // delete classify_linear;
             delete handle;
         }
 
@@ -46,9 +60,9 @@ class bert {
                             size_t seq_length, 
                             int* attention_mask=nullptr);
 
-        float* classify_inference(size_t num_classes);
+        // float* classify_inference(size_t num_classes);
     
-        void classify_inference_backward(int *classes, size_t num_classes);
+        // void classify_inference_backward(int *classes, size_t num_classes);
 
         void get_gpu_result(float* output,
                             float* gpu_tensor,
@@ -72,7 +86,7 @@ class bert {
         Embedding* embedding;
         std::vector<op_Linear*> output_linear;
         op_Linear* pooler_linear;
-        op_Linear* classify_linear;
+        // op_Linear* classify_linear;
         std::vector<op_Linear*> attention_linear;
         std::vector<op_Linear*> intermediate_linear;
         std::vector<op_BatchedLinear*> batched_linear;
@@ -81,8 +95,8 @@ class bert {
         std::vector<Query_Key*> query_key;
         std::vector<Prob_Value*> prob_value;
         op_Tanh* op_tanh;
-        op_SoftMax* classify_softmax;
-        op_CrossEntropyLoss* loss;
+        // op_SoftMax* classify_softmax;
+        // op_CrossEntropyLoss* loss;
 
 };
 

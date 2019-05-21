@@ -24,6 +24,7 @@ tagged_tensor* look_up_tts(std::vector<tagged_tensor *> tts, std::vector<std::st
             }
         }
         if( flag == 1 ){
+            tt->to_device();
             return tt;
         }
     }
@@ -91,17 +92,8 @@ void load_from_dir_to_GPU(std::string model_path_dir, std::vector<tagged_tensor 
         float* loaded = arr->data<float>();
         assert(arr->word_size == sizeof(float));
         tagged_tensor *tt = new tagged_tensor(name, arr->shape, loaded);
-        float* gpu_mem;
-        checkCudaErrors(cudaMalloc((void**)&gpu_mem, 
-                            sizeof(float) * tt->num_elements));
-        checkCudaErrors(cudaMemcpy(gpu_mem, tt->cpu_mem, 
-                                       sizeof(float) * tt->num_elements,
-                                       cudaMemcpyHostToDevice));
         //std::cout<<tt->debug_string()<<std::endl;   
-        tt->gpu_mem = gpu_mem;
-        tt->cpu_mem = nullptr;
         tts.push_back(tt);
-        delete arr;
     }
-    std::cout<<"Success: load npy from "<<model_path_dir<<" to GPU"<<std::endl;
+    std::cout<<"Success: load npy from "<<model_path_dir<<" to CPU"<<std::endl;
 }

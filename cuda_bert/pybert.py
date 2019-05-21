@@ -31,9 +31,9 @@ bert = lib.Cuda_Bert
 bert.argtypes = [c_void_p, ndpointer(numpy.float32), ndpointer(numpy.int32), ndpointer(numpy.int32),\
                       c_int, c_int, ndpointer(numpy.int32)]
 
-classify = lib.Cuda_Classify
-classify.argtypes = [c_void_p, ndpointer(numpy.float32), ndpointer(numpy.int32), ndpointer(numpy.int32),\
-                      c_int, c_int, c_int, ndpointer(numpy.int32)]
+# classify = lib.Cuda_Classify
+# classify.argtypes = [c_void_p, ndpointer(numpy.float32), ndpointer(numpy.int32), ndpointer(numpy.int32),\
+#                       c_int, c_int, c_int, ndpointer(numpy.int32)]
 
 def filling_inputs(words, seq_length):
     length = ( len(words) - 1 )

@@ -20,7 +20,10 @@ class op_Linear : public op_kernel{
         bias = tt->gpu_mem;
     }
 
-    ~op_Linear();
+    ~op_Linear(){
+      checkCudaErrors(cudaFree(kernel));
+      checkCudaErrors(cudaFree(bias));
+    }
 
     template <typename T>
     void forward(
@@ -60,7 +63,12 @@ class op_BatchedLinear : public op_kernel{
                       std::string key_val_bias,
                       global_handle* handle);
 
-    ~op_BatchedLinear();
+    ~op_BatchedLinear(){
+      checkCudaErrors(cudaFree(query_kernel));
+      checkCudaErrors(cudaFree(query_bias));
+      checkCudaErrors(cudaFree(key_bias));
+      checkCudaErrors(cudaFree(val_bias));
+    }
 
     template <typename T>
     void forward(

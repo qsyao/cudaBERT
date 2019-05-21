@@ -98,6 +98,16 @@ class tagged_tensor{
             return out;
         }
         
+        void to_device(){
+            assert(cpu_mem != nullptr);
+            checkCudaErrors(cudaMalloc((void**)&gpu_mem, 
+                            sizeof(float) * num_elements));
+            checkCudaErrors(cudaMemcpy(gpu_mem, cpu_mem, 
+                                       sizeof(float) * num_elements,
+                                       cudaMemcpyHostToDevice));
+            cpu_mem = nullptr;
+        }
+
         std::string name;
         std::vector<size_t> shape;
         float* cpu_mem;
