@@ -1,3 +1,5 @@
+import os
+
 class Config(object):
     def __init__(self):
         "Set CUDA Device"
@@ -31,7 +33,9 @@ class Config(object):
         "model_npy PATH including addition layer and weights of bert."
         self.model_npy_pth = "./model_npy"
 
-        self.cubert_pth = "../cuda_bert"
+        current_path = os.path.abspath(__file__)
+        self.cubert_pth = os.path.abspath(os.path.dirname(current_path)) + "/cuda_bert"
+
         self.hiddensize = 1024 if self.is_large else 768
     
     

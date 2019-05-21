@@ -1,12 +1,12 @@
 import argparse
 
 import sys
-sys.path.append("..")
+sys.path.append("../../")
 
-from engine import Engine
+from cuda_bert.engine import Engine
 from tokenlizer import init_tokenlizer, tokenlizer_line
 from finetune import Finetune_Layer
-from cuda_model import Cuda_BERT
+from cuda_bert.cuda_model import Cuda_BERT
 
 parser = argparse.ArgumentParser()
 

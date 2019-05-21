@@ -1,14 +1,14 @@
 import argparse
 import copy
-from config import Config
 import numpy as np
 import time
 import gc
 import sys
 from multiprocessing import Process, Queue
 
-from utils import optimize_batch, Batch_Packed, Tagged_line
-import mylogger
+from .config import Config
+from .utils import optimize_batch, Batch_Packed, Tagged_line
+from .mylogger import get_mylogger
 
 class batch_container(object):
     """ Init queue with top and base seq_length"""
@@ -177,7 +177,7 @@ class Engine(object):
         self.input_file = None
         self.output_file = None
         self.config = Config()
-        self.logger = mylogger.get_mylogger()
+        self.logger = get_mylogger()
     
     def _init(self):
         self.generate_splits()
