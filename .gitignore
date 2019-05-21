@@ -1,6 +1,6 @@
 cuda_bert/build/
-model_npy/
-model_dir/pytorch_model_v5.bin
+apps/model_npy/
+apps/model_dir/pytorch_model_v5.bin
 bert_*
 bert_config.json
 cuda_bert/tf_checkpoint/

@@ -1,13 +1,12 @@
 import argparse
 
-import mylogger
-from engine import engine
-from preprocess import init_tokenlizer, process_line
-from custom import custom_layer
-from cuda_model import cubert
-from utils import output_line
+import sys
+sys.path.append("..")
 
-logger = mylogger.get_mylogger()
+from engine import Engine
+from tokenlizer import init_tokenlizer, tokenlizer_line
+from finetune import Finetune_Layer
+from cuda_model import Cuda_BERT
 
 parser = argparse.ArgumentParser()
 
@@ -79,27 +78,24 @@ args = parser.parse_args()
 
 init_tokenlizer(args.vocab_file, args.do_lower_case)
 
-'''
-    Splits of Seq_length from [0, max_length]
-    Too sparse : Unnecessary Computation from mask
-    Too dense : Too much memory cost by cache in post_process
-'''
-def generate_splits(start, split, end):
-    ret = [0]
-    for i in range(start, end+split, split):
-        ret.append(i)
-    ret.append(args.max_seq_length)
-    return ret
-
-seq_length_split = generate_splits(50, args.split_size, 180)
-logger.info("The Split List of Seq_length")
-logger.info(seq_length_split)
+def output_line(line_data, output):
+    '''
+        define by Users to write results to output
+        line_data (string): what user use for raw line
+        output (string): computation results of bert + custom_layer
+    '''
+    return line_data + '\t' + str(output)
 
 if __name__ == "__main__":
-    runtime = engine(args, logger, seq_length_split)
-    runtime.set_cuda_model(cubert)
-    runtime.set_custom_layer(custom_layer)
-    runtime.set_preprocess_function(process_line)
+    runtime = Engine()
+
+    '''Set Config'''
+    runtime.set_config()
+    runtime.config.model_npy_pth = args.model_npy_pth
+
+    runtime.set_cuda_model(Cuda_BERT)
+    runtime.set_finetune_layer(Finetune_Layer)
+    runtime.set_tokenlizer_function(tokenlizer_line)
     runtime.set_output_function(output_line)
 
-    runtime.run()
+    runtime.run(args.input_file, args.output_file)

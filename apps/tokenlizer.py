@@ -1,10 +1,10 @@
 from pytorch_pretrained_bert.tokenization import BertTokenizer
-from utils import Tagged_line
 
 tokenlizer = None
 
 '''
-    Convert a input line from input_file to a tagged_line:
+    Convert a input line from input_file to a tuple:
+    [index, line_raw_data , inputs_id, segments_id, mask]
     record id_line
     process inputs_id, segments_id, mask
     record line_data(raw string in line from input_file to output)
@@ -126,12 +126,11 @@ def convert_example_to_feature(example, max_seq_length):
     assert len(segment_ids) == max_seq_length
 
 
-    return  Tagged_line(
-                num_line = example.num_line,
-                line_data=example.line_data,
-                input_ids=input_ids,
-                input_mask=input_mask,
-                segment_ids=segment_ids)
+    return  (example.num_line,
+            example.line_data,
+            input_ids,
+            input_mask,
+            segment_ids)
 
 def create_example(line, set_type, index):
     line = line.replace("\0", '').rstrip().split('\t')
@@ -142,8 +141,8 @@ def create_example(line, set_type, index):
     return  InputExample(index, line_data='\t'.join(line), \
                          guid=guid, text_a=text_a, text_b=text_b)
 
-def process_line(args, line, index):
+def tokenlizer_line(max_seq_length, line, index):
     example = create_example(line, "dev", index)
     eval_feature = convert_example_to_feature(
-        example, args.max_seq_length)
+        example, max_seq_length)
     return eval_feature

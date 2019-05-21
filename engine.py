@@ -1,14 +1,14 @@
 import argparse
 import copy
+from config import Config
 import numpy as np
 import time
 import gc
 import sys
 from multiprocessing import Process, Queue
 
-from utils import optimize_batch, Batch_Packed
-from preprocess import init_tokenlizer, process_line
-
+from utils import optimize_batch, Batch_Packed, Tagged_line
+import mylogger
 
 class batch_container(object):
     """ Init queue with top and base seq_length"""
@@ -167,32 +167,74 @@ class queue_manager(object):
 #                             args.input_file, str(total_length), str(end - start)))
 #     logger.info("engine_model Terminate" + str(num_gpu))
 
-class engine(object):
-    def __init__(self, args, logger, seq_length_split):
+class Engine(object):
+    def __init__(self):
         self.handle = None
-        self.custom_layer = None
+        self.finetune_layer = None
         self.cuda_model = None
-        self.process_line = None
+        self.tokenlizer_line = None
         self.output_line = None
-        self.is_large = args.is_large
-        self.args = args
-        self.logger = logger
-        self.seq_length_split = seq_length_split
+        self.input_file = None
+        self.output_file = None
+        self.config = Config()
+        self.logger = mylogger.get_mylogger()
+    
+    def _init(self):
+        self.generate_splits()
+
+        self.handle = queue_manager(self.seq_length_split, self.config.gpu,\
+                            self.logger, self.config.batch_size)
+
+        assert(self.cuda_model is not None)
+        assert(self.finetune_layer is not None)
+        assert(self.tokenlizer_line is not None)
+        assert(self.output_line is not None)
+
+        assert(self.config.gpu != [])
+                
+
+    def set_config(self, is_large = True, max_seq_length = 200, batch_size = 128,\
+                    queue_size = 100, alert_size = 1000000, start_split = 50,\
+                    end_split = 180, split_size = 2, skip_first_line = False):
+        self.config.is_large = is_large
+        self.config.max_seq_length = max_seq_length
+        self.config.batch_size = batch_size
+        self.config.queue_size = queue_size
+        self.config.alert_size = alert_size
+        self.config.start_split = start_split
+        self.config.end_split = end_split
+        self.config.split_size = split_size
+        self.config.skip_first_line = skip_first_line
 
     def set_cuda_model(self, cuda_model):
         self.cuda_model = cuda_model
 
-    def set_custom_layer(self, custom_layer):
-        self.custom_layer = custom_layer
+    def set_finetune_layer(self, finetune_layer):
+        self.finetune_layer = finetune_layer
 
-    def set_preprocess_function(self, process_line):
-        self.process_line = process_line
+    def set_tokenlizer_function(self, tokenlizer_line):
+        self.tokenlizer_line = tokenlizer_line
 
     def set_output_function(self, output_line):
         self.output_line = output_line
 
-    def engine_model(self, id_gpu):
-        args = self.args
+    '''
+    Splits of Seq_length from [0, max_length]
+    Too sparse : Unnecessary Computation from mask
+    Too dense : Too much memory cost by cache in post_process
+    '''
+    def generate_splits(self):
+        ret = [0]
+        for i in range(self.config.start_split, \
+                       self.config.end_split + self.config.split_size, \
+                       self.config.split_size):
+            ret.append(i)
+        ret.append(self.config.max_seq_length)
+        self.seq_length_split = ret
+
+
+    def _engine_model(self, id_gpu):
+        config = self.config
         handle = self.handle
         logger = self.logger
         '''
@@ -201,10 +243,10 @@ class engine(object):
         init weights by numpy
         run after bert_encoding
         '''
-        user_layer = self.custom_layer(args.is_large)
-        user_layer.init_custom_layer(id_gpu)
+        user_layer = self.finetune_layer(config.is_large)
+        user_layer.init_finetune_layer(id_gpu)
 
-        model = self.cuda_model(id_gpu, args) 
+        model = self.cuda_model(id_gpu, config) 
 
         start = time.time()
         total_length = 0
@@ -226,19 +268,28 @@ class engine(object):
                 break
         end = time.time()
         logger.warning("Predict File {} total_length: {} Cost: {}".format(  \
-                                args.input_file, str(total_length), str(end - start)))
+                                config.input_file, str(total_length), str(end - start)))
         logger.info("engine_model Terminate at gpu" + str(id_gpu))
 
-    def engine_preprocess(self):
-        args = self.args
+    def _generate_tagged_line(self, user_output):
+        return Tagged_line(
+                num_line = user_output[0],
+                line_data = user_output[1],
+                input_ids = user_output[2],
+                input_mask = user_output[3],
+                segment_ids = user_output[4])
+
+    def _engine_preprocess(self, input_file):
+        config = self.config
         handle = self.handle
-        with open(args.input_file, 'r', encoding='utf-8') as f:
-            if args.skip_first_line:
+        with open(input_file, 'r', encoding='utf-8') as f:
+            if self.config.skip_first_line:
                 f.readline()
             line = f.readline()
             index = 0
             while line:
-                tagged_line = self.process_line(args, line, index)
+                tagged_line = self._generate_tagged_line(self.tokenlizer_line(\
+                                                        config.max_seq_length, line, index))
                 handle.put(tagged_line)
                 index += 1
                 line = f.readline()
@@ -250,16 +301,16 @@ class engine(object):
         self.logger.info("engine_preprocess Terminate")
 
 
-    def engine_postprocess(self):
+    def _engine_postprocess(self, output_file):
         handle = self.handle
         logger = self.logger
-        with open(self.args.output_file, 'w', encoding='utf-8') as f:
+        with open(output_file, 'w', encoding='utf-8') as f:
             start = 0
             end = 0
             window = [""]
             while(1):
                 logger.debug("{}, {}".format(handle.output_queue.qsize(), handle.dead_queue.qsize()))
-                if handle.output_queue.empty() and handle.dead_queue.qsize() == 1 + len(self.args.gpu):
+                if handle.output_queue.empty() and handle.dead_queue.qsize() == 1 + len(self.config.gpu):
                     logger.info("engine_postprocess Terminate")
                     handle.output_queue.cancel_join_thread()
                     handle.force_queue.cancel_join_thread()
@@ -290,7 +341,7 @@ class engine(object):
                     else:
                         if lines_list[index].num_line == start + i:
                             window[i] = self.output_line(lines_list[index].line_data, \
-                                                        str(lines_list[index].output))
+                                                                lines_list[index].output)
                             index += 1
                         else:
                             logger.debug("window[{}] Not in this batch".format(start + i))
@@ -313,7 +364,7 @@ class engine(object):
                 start += write_length
                 
                 ''' force enqueue '''
-                if end - start > self.args.alert_size and handle.dead_queue.empty():
+                if end - start > self.config.alert_size and handle.dead_queue.empty():
                     if handle.force_queue.empty():
                         handle.force_queue.put("force_enqueue Now")
 
@@ -324,26 +375,25 @@ class engine(object):
                 del lines_list
                 gc.collect()
 
-    def run(self):
-        self.handle = queue_manager(self.seq_length_split, self.args.gpu,\
-                                    self.logger, self.args.batch_size)
+    def run(self, input_file, output_file):
+        assert(type(output_file) == str)
+        assert(type(input_file) == str)
 
-        assert(self.cuda_model is not None)
-        assert(self.custom_layer is not None)
-        assert(self.process_line is not None)
-        assert(self.output_line is not None)
+        self._init()
+        self.config.input_file = input_file
+        self.config.output_file = output_file
 
-        file_reader = Process(target=self.engine_preprocess, args=())
+        file_reader = Process(target=self._engine_preprocess, args=(input_file,))
         file_reader.deamon = True
         file_reader.start()
 
         runtime_list = []
-        for num_gpu in self.args.gpu:
-            runtime = Process(target=self.engine_model, args=(num_gpu, ))
+        for num_gpu in self.config.gpu:
+            runtime = Process(target=self._engine_model, args=(num_gpu, ))
             runtime.deamon = True
             runtime.start()
             runtime_list.append(runtime)
-        file_writer = Process(target=self.engine_postprocess, args=())
+        file_writer = Process(target=self._engine_postprocess, args=(output_file,))
         file_writer.deamon = True
         file_writer.start()
 

@@ -59,10 +59,3 @@ class Tagged_line(object):
         if index == 2: 
             return self.input_mask
 
-def output_line(line_data, output):
-    '''
-        define by Users to write results to output
-        line_data (string): what user use for raw line
-        output (string): computation results of bert + custom_layer
-    '''
-    return line_data + '\t' + output
