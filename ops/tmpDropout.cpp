@@ -52,14 +52,10 @@ public:
     float* d_dx_dropout{nullptr};
     void* states_data;
     void* dropout_reserve_space;
-    int batchSize, features, imgH, imgW;
-    int in_out_bytes;
 
     Dropout(float dropR, int len) :
             dropRate(dropR), n(len)
     {
-        in_out_bytes = sizeof(float)*n;
-
         checkCUDNN(cudnnCreate(&cudnn));
         checkCUDNN(cudnnCreateDropoutDescriptor(&dropout_desc_));
         checkCUDNN(cudnnCreateTensorDescriptor(&data_desc_));
@@ -70,6 +66,11 @@ public:
         std::cout << "states_size_in_bytes_: " << states_size_in_bytes_ << std::endl;
 
         cudaMalloc(&states_data, states_size_in_bytes_);
+
+        std::cout << "states_data: " << states_data << std::endl;
+        std::cout << "dropout_desc_: " << dropout_desc_ << std::endl;
+        std::cout << "cudnn: " << cudnn << std::endl;
+        std::cout << "dropRate: " << dropRate << std::endl;
 
         checkCUDNN(cudnnSetDropoutDescriptor(dropout_desc_,
                                              cudnn,
@@ -82,8 +83,8 @@ public:
 
     float* Forward(float* d_input)
     {
-        cudaMalloc(&d_dropout_out, in_out_bytes);
-        cudaMalloc(&d_dx_dropout, in_out_bytes);
+        cudaMalloc(&d_dropout_out, n * sizeof(float));
+        cudaMalloc(&d_dx_dropout, n * sizeof(float));
         ref_input = d_input;
 
         checkCUDNN(cudnnSetTensor4dDescriptor(data_desc_,

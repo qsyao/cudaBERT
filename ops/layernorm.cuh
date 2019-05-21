@@ -81,13 +81,7 @@ class op_LayerNorm : public op_kernel{
     float* mean;
     float* invvar;
 
-    float beta_1;
-    float beta_2;
-    float momentum_beta;
-    float weight_decay_rate;
-    float adam_epsilon;
-    float beta_1_t;
-    float beta_2_t;
+    float beta_1, beta_2, momentum_beta, weight_decay_rate, adam_epsilon, beta_1_t, beta_2_t;
     float *momentum_gamma_v;
     float *momentum_beta_v;
     float *gamma_m_t;

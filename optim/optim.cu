@@ -20,11 +20,6 @@ __global__ void cu_apply_momentum_running_time(float *input, float *grad, size_t
         else
             v[i] = beta * v[i] + grad[i];
         input[i] -= lr * v[i];
-//        if(step == 0)
-//            v[i] = lr * grad[i];
-//        else
-//            v[i] = beta * v[i] + lr * grad[i];
-//        input[i] -= v[i];
     }
     __syncthreads();
 }
@@ -62,11 +57,6 @@ void apply_adam_running_time(float *input, float *grad, size_t n, float *m_t, fl
     beta_2_t = beta_2_t * beta_2;
 
     float learning_rate_t = learning_rate * sqrt(1.0 - beta_2_t) / (1.0 - beta_1_t);
-
-//    std::cout << "beta_1_t: " << beta_1_t << std::endl;
-//    std::cout << "beta_2_t: " << beta_2_t << std::endl;
-//    std::cout << "step: " << step << std::endl;
-//    std::cout << "learning_rate_t: " << learning_rate_t << std::endl;
 
     dim3 threads(1024, 1, 1);
     dim3 blocks(min((long) 65535, n / 1024 + 1), 1, 1);

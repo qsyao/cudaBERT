@@ -29,8 +29,8 @@ def batch_inputs(input, batchsize):
     return ret
 
 seq_length = 128
-batchsize = 8
-Iters = 30
+batchsize = 1
+Iters = 1
 
 tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 
@@ -87,8 +87,8 @@ if gpu:
     attention_mask = attention_mask.cuda()
     next_sentence_label = next_sentence_label.cuda()
 
-# optimizer = optim.SGD(model.parameters(), lr=0.001)
-optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9, dampening = 0)
+optimizer = optim.SGD(model.parameters(), lr=0.001)
+# optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
 # optimizer = optim.Adam(model.parameters())
 
 for i in range(Iters):

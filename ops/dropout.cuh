@@ -34,34 +34,23 @@ public:
 public:
     op_Dropout(float dropR, global_handle *handle) :
             dropRate(dropR), op_kernel(handle) {
-
+        std::cout << "PPPPPP" << std::endl;
         //TODO
         checkCUDNN(cudnnCreate(&cudnn));
         checkCUDNN(cudnnCreateDropoutDescriptor(&dropout_desc_));
         checkCUDNN(cudnnCreateTensorDescriptor(&data_desc_));
 
-        std::cout << "states_size_in_bytes_: " << states_size_in_bytes_ << std::endl;
         checkCUDNN(cudnnDropoutGetStatesSize(cudnn,
                                              &states_size_in_bytes_));
-        std::cout << "states_size_in_bytes_: " << states_size_in_bytes_ << std::endl;
-
-//        cudaMalloc(&states_data, states_size_in_bytes_);
-//        cudaMalloc(&dropout_reserve_space_data, dropout_reserve_size);
 
         states_data = handle->global_malloc_manage_float.get_new_head_point(states_size_in_bytes_);
-//        cudaMalloc(&states_data, states_size_in_bytes_);
 
-        std::cout << "states_data: " << states_data << std::endl;
-        std::cout << "dropout_desc_: " << dropout_desc_ << std::endl;
-        std::cout << "cudnn: " << cudnn << std::endl;
-        std::cout << "dropRate: " << dropRate << std::endl;
         checkCUDNN(cudnnSetDropoutDescriptor(dropout_desc_,
                                   cudnn,
                                   dropRate,
                                   states_data,
                                   states_size_in_bytes_,
                 /*Seed*/1));
-        std::cout << "PPPPPP" << std::endl;
     };
 
     template<typename T>

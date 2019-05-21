@@ -20,7 +20,7 @@ include_directories(${CUDA_TOOLKIT_ROOT_DIR}/samples/common/inc/)
 message("warning: helper headers locate at ")
 message(${CUDA_TOOLKIT_ROOT_DIR}/samples/common/inc/)
 
-list(APPEND cudaBERT_EXTERNAL_LIBRARIES ${CUDA_LIBRARIES} ${CUDA_CUBLAS_LIBRARIES})
+list(APPEND cudaBERT_EXTERNAL_LIBRARIES ${CUDA_LIBRARIES} ${CUDA_CUBLAS_LIBRARIES} ${CUDA_TOOLKIT_ROOT_DIR}/lib64/libcudnn.so)
 include_directories(${CUDA_INCLUDE_DIRS})
 
 set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS};--expt-relaxed-constexpr)
@@ -51,7 +51,6 @@ set(SOURCE_FILES
 
 cuda_add_library(cudaBERT SHARED ${SOURCE_FILES})
 add_dependencies(cudaBERT cnpy)
-target_link_libraries(cudaBERT cudnn)
 target_link_libraries(cudaBERT cnpy ${cudaBERT_EXTERNAL_LIBRARIES})
 
 cuda_add_executable(unit_test test/test.cpp)

@@ -12,10 +12,10 @@ void op_Dropout::forward(T *&output, T *input, int len) {
     checkCUDNN(cudnnDropoutGetReserveSpaceSize(data_desc_,
                                                &reserve_space_size_in_bytes_));
 
-
     dropout_reserve_space = handle->global_malloc_manage_float.get_new_head_point(reserve_space_size_in_bytes_);
 
     output = handle->global_malloc_manage_float.get_new_head_point(n);
+
     checkCUDNN(cudnnDropoutForward(cudnn,
                                    dropout_desc_,
                                    data_desc_,

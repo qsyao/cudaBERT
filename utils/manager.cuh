@@ -58,8 +58,8 @@ class global_handle {
         size_t max_seq_length = 512;
         size_t max_mem_size = 200 * 512;
         float learning_rate = 0.001;
-        float hidden_dropout_prob = 0.1;
-        float attention_probs_dropout_prob = 0.1;
+        float hidden_dropout_prob = 0;
+        float attention_probs_dropout_prob = 0;
         bool update_learning_rate = false;
         std::string optim_method = "sgd";
         bool optim_running_time = true;
