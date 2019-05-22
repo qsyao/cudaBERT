@@ -40,7 +40,7 @@ python convert_pytorch_model_to_npys.py --bert_config_file model_dir/bert_config
 ### Step 3
 Define your own functions:
 
-- Custom additional layer: In apps/finetune.py , take output numpy.array from bert : [batchsize, hidden_size]
+- Custom finetune layer: In apps/finetune.py , take output numpy.array from bert : [batchsize, hidden_size]
 ```python
 class torch_classify(nn.Module):
     def __init__(self, num_classes, hidden_size):
@@ -74,18 +74,21 @@ def output_line(line_data, output):
 
 ### Step 4 
 
-New class engine and set cuda_model, custom_layer, preproecess_function, output_line and configs of engine(Noted in config.py) in example.py
+New class engine , config and set cuda_model, custom_layer, preproecess_function, output_line and config of engine(Noted in config.py) in example.py
+
+The defalt value and meaning of configs are set at config.py.
 
 ```python
 from cuda_bert.engine import Engine
 from cuda_bert.cuda_model import Cuda_BERT
 
 if __name__ == "__main__":
-    runtime = Engine()
-
     '''Set Config'''
-    runtime.set_config()
-    runtime.config.model_npy_pth = args.model_npy_pth
+    config = Engin_Config()
+    config.batchsize = 128
+    config.model_npy_pth = args.model_npy_pth
+
+    runtime = Engine(config)
 
     runtime.set_cuda_model(Cuda_BERT)
     runtime.set_finetune_layer(Finetune_Layer)

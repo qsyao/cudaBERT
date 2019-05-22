@@ -1,6 +1,6 @@
 import os
 
-class Config(object):
+class Engin_Config(object):
     def __init__(self):
         "Set CUDA Device"
         self.gpu = [0]

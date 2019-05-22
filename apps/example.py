@@ -4,6 +4,7 @@ import sys
 sys.path.append("../../")
 
 from cuda_bert.engine import Engine
+from cuda_bert.config import Engin_Config
 from tokenlizer import init_tokenlizer, tokenlizer_line
 from finetune import Finetune_Layer
 from cuda_bert.cuda_model import Cuda_BERT
@@ -87,12 +88,13 @@ def output_line(line_data, output):
     return line_data + '\t' + str(output)
 
 if __name__ == "__main__":
-    runtime = Engine()
-
     '''Set Config'''
-    runtime.set_config()
-    runtime.config.model_npy_pth = args.model_npy_pth
+    config = Engin_Config()
+    config.batchsize = 128
+    config.model_npy_pth = args.model_npy_pth
 
+    runtime = Engine(config)
+    
     runtime.set_cuda_model(Cuda_BERT)
     runtime.set_finetune_layer(Finetune_Layer)
     runtime.set_tokenlizer_function(tokenlizer_line)

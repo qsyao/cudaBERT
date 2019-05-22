@@ -6,7 +6,6 @@ import gc
 import sys
 from multiprocessing import Process, Queue
 
-from .config import Config
 from .utils import optimize_batch, Batch_Packed, Tagged_line
 from .mylogger import get_mylogger
 
@@ -168,7 +167,7 @@ class queue_manager(object):
 #     logger.info("engine_model Terminate" + str(num_gpu))
 
 class Engine(object):
-    def __init__(self):
+    def __init__(self, config):
         self.handle = None
         self.finetune_layer = None
         self.cuda_model = None
@@ -176,7 +175,7 @@ class Engine(object):
         self.output_line = None
         self.input_file = None
         self.output_file = None
-        self.config = Config()
+        self.config = config
         self.logger = get_mylogger()
     
     def _init(self):
@@ -193,18 +192,18 @@ class Engine(object):
         assert(self.config.gpu != [])
                 
 
-    def set_config(self, is_large = True, max_seq_length = 200, batch_size = 128,\
-                    queue_size = 100, alert_size = 1000000, start_split = 50,\
-                    end_split = 180, split_size = 2, skip_first_line = False):
-        self.config.is_large = is_large
-        self.config.max_seq_length = max_seq_length
-        self.config.batch_size = batch_size
-        self.config.queue_size = queue_size
-        self.config.alert_size = alert_size
-        self.config.start_split = start_split
-        self.config.end_split = end_split
-        self.config.split_size = split_size
-        self.config.skip_first_line = skip_first_line
+    # def set_config(self, is_large = True, max_seq_length = 200, batch_size = 128,\
+    #                 queue_size = 100, alert_size = 1000000, start_split = 50,\
+    #                 end_split = 180, split_size = 2, skip_first_line = False):
+    #     self.config.is_large = is_large
+    #     self.config.max_seq_length = max_seq_length
+    #     self.config.batch_size = batch_size
+    #     self.config.queue_size = queue_size
+    #     self.config.alert_size = alert_size
+    #     self.config.start_split = start_split
+    #     self.config.end_split = end_split
+    #     self.config.split_size = split_size
+    #     self.config.skip_first_line = skip_first_line
 
     def set_cuda_model(self, cuda_model):
         self.cuda_model = cuda_model
