@@ -28,6 +28,7 @@ void Embedding::forward(T *&output,
     word_input = words;
     token_type_input = token_type;
     position_input = position;
+
     // MemcpyHostToDevice for inputs
     size_t batchsize = handle->batchsize;
     size_t seq_length = handle->seq_length;
@@ -35,7 +36,7 @@ void Embedding::forward(T *&output,
 
     int total_words = batchsize * seq_length;
 
-    output = handle->global_malloc_manage_float.get_new_head_point(
+    float *tmp_output = handle->global_malloc_manage_float.get_new_head_point(
             batchsize *
             seq_length *
             hidden_size);
@@ -47,14 +48,14 @@ void Embedding::forward(T *&output,
                     token_type,
                     position,
                     total_words,
-                    output,
+                    tmp_output,
                     word_embedding,
                     token_type_embedding,
                     position_embedding);
     //debug_tensor_gpu<float>(std::string("after embedding add : "), output, 10, handle->hidden_size, 5);
 
     layernorm->forward(output,
-                       output,
+                       tmp_output,
                        total_words,
                        hidden_size);
 
@@ -136,44 +137,45 @@ void Embedding::backward(T *dout) {
     size_t seq_length = handle->seq_length;
     size_t hidden_size = handle->hidden_size;
 
-    debug_tensor_gpu<float>(std::string("layernorm->gamma: "), layernorm->gamma, 3, handle->hidden_size, 1);
-    debug_tensor_gpu<float>(std::string("dout"), dout, 3, hidden_size, batchsize * seq_length);
+//    debug_tensor_gpu<float>(std::string("layernorm->gamma: "), layernorm->gamma, 3, hidden_size, 1);
+//    debug_tensor_gpu<float>(std::string("dout"), dout, 3, hidden_size, batchsize * seq_length);
     layernorm->backward(dout, batchsize * seq_length, hidden_size);
 
-    debug_tensor_gpu<float>(std::string("layernorm->grad_gamma"), layernorm->grad_gamma, hidden_size, hidden_size);
-    debug_tensor_gpu<float>(std::string("layernorm->grad_input"), layernorm->grad_input, 3, hidden_size, batchsize * seq_length);
+//    debug_tensor_gpu<float>(std::string("layernorm->grad_gamma"), layernorm->grad_gamma, 3, hidden_size);
+//    debug_tensor_gpu<float>(std::string("layernorm->grad_input"), layernorm->grad_input, 3, hidden_size, batchsize * seq_length);
 
-//    int total_words = batchsize * seq_length;
-//
-//    grad_word_embedding = handle->global_malloc_manage_float.get_new_head_point(len_word_embedding);
-//    cudaMemset(grad_word_embedding, 0, len_word_embedding * sizeof(float));
-//
-//    grad_position_embedding = handle->global_malloc_manage_float.get_new_head_point(len_position_embedding);
-//    cudaMemset(grad_position_embedding, 0, len_position_embedding * sizeof(float));
-//
-//    grad_token_type_embedding = handle->global_malloc_manage_float.get_new_head_point(len_token_type_embedding);
-//    cudaMemset(grad_token_type_embedding, 0, len_token_type_embedding * sizeof(float));
-//
-//    dim3 threads(hidden_size, 1, 1);
-//    dim3 blocks(min(65536, total_words), 1, 1);
-//
-////    debug_tensor_gpu<float>(std::string("grad_token_type_embedding"), grad_token_type_embedding, 3, hidden_size, 2);
-//
-//    DeviceApplyEmbeddingsGrad << < blocks, threads, 0, handle->cal_stream >> > (
-//            word_input,
-//                    token_type_input,
-//                    position_input,
-//                    total_words,
-//                    layernorm->grad_input,
-//                    grad_word_embedding,
-//                    grad_token_type_embedding,
-//                    grad_position_embedding);
-//
-//
-////    debug_tensor_gpu<float>(std::string("grad_token_type_embedding"), grad_token_type_embedding, 3, hidden_size, 2);
-//
-//    if (handle->optim_running_time)
-//        update_weights();
+    int total_words = batchsize * seq_length;
+
+    grad_word_embedding = handle->global_malloc_manage_float.get_new_head_point(len_word_embedding);
+    cudaMemset(grad_word_embedding, 0, len_word_embedding * sizeof(float));
+
+    grad_position_embedding = handle->global_malloc_manage_float.get_new_head_point(len_position_embedding);
+    cudaMemset(grad_position_embedding, 0, len_position_embedding * sizeof(float));
+
+    grad_token_type_embedding = handle->global_malloc_manage_float.get_new_head_point(len_token_type_embedding);
+    cudaMemset(grad_token_type_embedding, 0, len_token_type_embedding * sizeof(float));
+
+    dim3 threads(hidden_size, 1, 1);
+    dim3 blocks(min(65536, total_words), 1, 1);
+
+    DeviceApplyEmbeddingsGrad << < blocks, threads, 0, handle->cal_stream >> > (
+            word_input,
+                    token_type_input,
+                    position_input,
+                    total_words,
+                    layernorm->grad_input,
+                    grad_word_embedding,
+                    grad_token_type_embedding,
+                    grad_position_embedding);
+
+    debug_tensor_gpu<int>(std::string("word_input"), word_input, batchsize * seq_length, batchsize * seq_length);
+    debug_tensor_gpu<int>(std::string("token_type_input"), token_type_input, batchsize * seq_length, batchsize * seq_length);
+    debug_tensor_gpu<int>(std::string("position_input"), position_input, batchsize * seq_length, batchsize * seq_length);
+
+    debug_tensor_gpu<float>(std::string("grad_token_type_embedding"), grad_token_type_embedding, 3, hidden_size, 2);
+
+    if (handle->optim_running_time)
+        update_weights();
 }
 
 template

@@ -165,6 +165,13 @@ void cuApplyLayerNorm(
         }
         __syncthreads();
     }
+    else if(stored_input != nullptr){
+        for (int i1 = blockIdx.y; i1 < n1; i1 += gridDim.y)
+            for (int i = threadIdx.y * blockDim.x + threadIdx.x; i < n2; i += blockDim.y * blockDim.x)
+                if(stored_input != nullptr)
+                    stored_input[i + i1 * n2] = vals[i + i1 * n2];
+        __syncthreads();
+    }
 
     for (int i1 = blockIdx.y; i1 < n1; i1 += gridDim.y) {
         SharedMemory<U> shared;

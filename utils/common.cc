@@ -69,6 +69,9 @@ void debug_tensor_gpu(std::string tag, void* gpu_tensor, int max_x, int length_x
 template
 void debug_tensor_gpu<float>(std::string tag, void* gpu_tensor, int max_x, int length_x, int max_y);
 
+template
+void debug_tensor_gpu<int>(std::string tag, void* gpu_tensor, int max_x, int length_x, int max_y);
+
 template <typename T>
 void dump_tensor(std::string file_name, 
                 void* gpu_tensor,

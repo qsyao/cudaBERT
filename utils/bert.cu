@@ -124,6 +124,7 @@ void bert::init_ops() {
 
     if (handle->is_train) {
         handle->global_malloc_manage_float.recerd_optim_start();
+        handle->global_malloc_manage_int.recerd_optim_start();
     }
 }
 
@@ -355,12 +356,13 @@ void bert::BERT_train(
     handle->set_scale(batchsize, seq_length);
     if (handle->is_train) {
         handle->global_malloc_manage_float.reuse_optim_mem();
-        handle->global_malloc_manage_int.set_head_zero();
+        handle->global_malloc_manage_int.reuse_optim_mem();
     } else {
         handle->reset();
     }
     int *positions;
     copy_inputs(words, token_types, positions, attention_mask);
+
 
     float *embedding_out;
 
@@ -452,6 +454,7 @@ void bert::BERT_train(
                                         num_words,
                                         hidden_size,
                                         tensor_layer);
+
         // End of Attention
         // Start of Intermediate
         float *intermediate_out;
@@ -584,8 +587,8 @@ float bert::classify_train(int *classes, float *pooler_out, size_t num_classes) 
     }
 
     for (int i = handle->num_hidden_layers - 1; i >= 0; i--) {
-//        if (handle->optim_running_time)
-//            handle->global_malloc_manage_float.record_layer_start();
+        if (handle->optim_running_time)
+            handle->global_malloc_manage_float.record_layer_start();
 
         output_layernorm[i]->backward(tensor_layer_grad_input, handle->batchsize * handle->seq_length,
                                       handle->hidden_size);
@@ -676,8 +679,8 @@ float bert::classify_train(int *classes, float *pooler_out, size_t num_classes) 
                                                                                                 handle->batchsize *
                                                                                                 handle->seq_length);
         }
-//        if (handle->optim_running_time)
-//            handle->global_malloc_manage_float.reuse_layer_mem();
+        if (handle->optim_running_time)
+            handle->global_malloc_manage_float.reuse_layer_mem();
     }
 
     if (handle->is_train && handle->hidden_dropout_prob > 0 && handle->hidden_dropout_prob <= 1) {
@@ -685,7 +688,7 @@ float bert::classify_train(int *classes, float *pooler_out, size_t num_classes) 
         tensor_layer_grad_input = embedding_dropout->grad_input;
     }
 
-//    embedding->backward(tensor_layer_grad_input);
+    embedding->backward(tensor_layer_grad_input);
 
     return loss_return;
 }
