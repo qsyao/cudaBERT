@@ -52,7 +52,7 @@ global_handle::~global_handle(){
 }
 
 void global_handle::init_cudamemory(int batchsize, int seq_length){
-    global_malloc_manage_int.init(batchsize * seq_length * 4);
+    global_malloc_manage_int.init(batchsize * seq_length * 4 + (23440896 + 393216 + 1536) * 2);
 
     size_t left, total, real_Memcost;
     checkCudaErrors(cudaMemGetInfo(&left, &total));

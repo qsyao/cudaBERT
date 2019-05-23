@@ -96,6 +96,10 @@ public:
     float *position_m_t, *position_v_t;
     float *token_type_m_t, *token_type_v_t;
     float beta_1, beta_2, momentum_beta, weight_decay_rate, adam_epsilon, beta_1_t, beta_2_t;
+
+    int *update_grad_embedding_words;
+    int *update_grad_embedding_token_types;
+    int *update_grad_embedding_positions;
     int step = 0;
 };
 
