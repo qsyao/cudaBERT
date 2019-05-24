@@ -439,10 +439,9 @@ void test_train(int batchsize, int seq_length, int nIter, bool base, int num_gpu
     int test_token_type_id_seed[11] = {0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1};
 
     int attention_mask[11] = {1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0};
-    int classes[batchsize] ;
-    for(int i = 0; i < batchsize; i++){
+    int *classes = (int *) malloc(sizeof(int) * batchsize);
+    for(int i = 0; i < batchsize; i++)
         classes[i] = 1;
-    }
 
     int *test_word_id, *test_token_type_id, *test_attention_mask;
     test_word_id = filling_inputs(test_word_id_seed, seq_length, 11, batchsize);
@@ -478,7 +477,6 @@ void test_train(int batchsize, int seq_length, int nIter, bool base, int num_gpu
                 2,
                 test_attention_mask
         );
-        std::cout << model->handle->learning_rate << std::endl;
         learning_rate *= learning_rate_decay;
         model->update_lr_end();
 
