@@ -43,6 +43,7 @@ void global_handle::set_optim_adam(float lr, float weightDecayLate, float beta1,
 void global_handle::set_optim_momentum(float lr, float beta) {
     learning_rate = lr;
     momentum_beta = beta;
+    optim_method = "momentum";
 }
 
 global_handle::~global_handle(){
