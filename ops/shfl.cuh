@@ -18,6 +18,16 @@ __device__ __forceinline__ T WARP_SHFL(T value, int srcLane, int width = warpSiz
 }
 
 template <typename T>
+__device__ __forceinline__ T WARP_SHFL_DOWN(T value, int srcLane, int width = warpSize, unsigned int mask = 0xffffffff)
+{
+#if CUDA_VERSION >= 9000
+    return __shfl_down_sync(mask, value, srcLane, width);
+#else
+    return __shfl_down(value, srcLane, width);
+#endif
+}
+
+template <typename T>
 __device__ __forceinline__ T WARP_SHFL_XOR(T value, int srcLane, int width = warpSize, unsigned int mask = 0xffffffff)
 {
 #if CUDA_VERSION >= 9000
