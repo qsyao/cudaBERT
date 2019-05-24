@@ -340,7 +340,7 @@ float *bert::classify_inference(float *pooler_out, size_t num_classes) {
     return classify_out;
 }
 
-void bert::BERT_train(
+void bert::BERT_train_forward(
         int *words,
         int *token_types,
         size_t batchsize,
@@ -368,7 +368,6 @@ void bert::BERT_train(
 
     embedding->forward(embedding_out, words, token_types, positions);
     // Embedding output
-//    debug_tensor_gpu<float>(std::string("embedding_out"), embedding_out, 3, handle->hidden_size, 3);
 
     float *tensor_layer = embedding_out, *temp;
     float *embedding_dropout_out, *self_attention_dropout_out, *self_output_dropout_out;
@@ -557,7 +556,8 @@ float bert::classify_train(int *classes, float *pooler_out, size_t num_classes) 
 
     loss->backward(dout_gpu, handle->batchsize, num_classes, calsses_gpu);
 
-    classify_linear->backward(loss->grad_input, handle->batchsize,
+    classify_linear->backward(loss->grad_input, 
+                              handle->batchsize,
                               handle->hidden_size,
                               num_classes);
 
@@ -572,25 +572,15 @@ float bert::classify_train(int *classes, float *pooler_out, size_t num_classes) 
 
     float *copy_pooler_grad_input;
     copy_pooler_backward(copy_pooler_grad_input, pooler_linear->grad_input, handle);
-//    debug_tensor_gpu<float>(std::string("copy_pooler_grad_input"), copy_pooler_grad_input, 3, handle->hidden_size, handle->batchsize*handle->seq_length);
 
-    float *tensor_layer_grad_input = handle->global_malloc_manage_float.get_new_head_point(
-            handle->hidden_size * handle->batchsize * handle->seq_length);
-    {
-        dim3 threads(1024, 1, 1);
-        dim3 blocks(min((long) 65535, handle->hidden_size * handle->batchsize * handle->seq_length / 1024) + 1, 1, 1);
-        MemoryCpyLinear<float> << < blocks, threads, 0, handle->cal_stream >> > (
-                tensor_layer_grad_input, copy_pooler_grad_input, handle->hidden_size * handle->batchsize *
-                                                                 handle->seq_length, handle->hidden_size *
-                                                                                     handle->batchsize *
-                                                                                     handle->seq_length);
-    }
+    float *tensor_layer_grad_input = copy_pooler_grad_input;
 
     for (int i = handle->num_hidden_layers - 1; i >= 0; i--) {
         if (handle->optim_running_time)
             handle->global_malloc_manage_float.record_layer_start();
 
-        output_layernorm[i]->backward(tensor_layer_grad_input, handle->batchsize * handle->seq_length,
+        output_layernorm[i]->backward(tensor_layer_grad_input, 
+                                      handle->batchsize * handle->seq_length,
                                       handle->hidden_size);
 
         deal_dropout = output_layernorm[i]->grad_input;
@@ -599,19 +589,26 @@ float bert::classify_train(int *classes, float *pooler_out, size_t num_classes) 
             deal_dropout = output_dropout[i]->grad_input;
         }
 
-        output_linear[i]->backward(deal_dropout, handle->batchsize * handle->seq_length,
-                                   handle->intermediate_size, handle->hidden_size);
+        output_linear[i]->backward(deal_dropout, 
+                                   handle->batchsize * handle->seq_length,
+                                   handle->intermediate_size, 
+                                   handle->hidden_size);
 
         gelu[i]->backward(output_linear[i]->grad_input,
                           handle->batchsize * handle->seq_length * handle->intermediate_size);
 
-        intermediate_linear[i]->backward(gelu[i]->grad_input, handle->batchsize * handle->seq_length,
-                                         handle->hidden_size, handle->intermediate_size);
+        intermediate_linear[i]->backward(gelu[i]->grad_input,
+                                         handle->batchsize * handle->seq_length,
+                                         handle->hidden_size, 
+                                         handle->intermediate_size);
 
-        short_cut_backward(intermediate_linear[i]->grad_input, output_layernorm[i]->grad_input,
-                           handle->batchsize * handle->seq_length * handle->hidden_size, handle);
+        short_cut_backward(intermediate_linear[i]->grad_input, 
+                           output_layernorm[i]->grad_input,
+                           handle->batchsize * handle->seq_length * handle->hidden_size,
+                           handle);
 
-        attention_layernorm[i]->backward(intermediate_linear[i]->grad_input, handle->batchsize * handle->seq_length,
+        attention_layernorm[i]->backward(intermediate_linear[i]->grad_input, 
+                                         handle->batchsize * handle->seq_length,
                                          handle->hidden_size);
 
         deal_dropout = attention_layernorm[i]->grad_input;

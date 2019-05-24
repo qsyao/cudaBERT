@@ -49,7 +49,7 @@ class bert {
 
         float* classify_inference(float* pooler_out, size_t num_classes);
 
-        void BERT_train (
+        void BERT_train_forward (
                 int* words,
                 int* token_types,
                 size_t batchsize,

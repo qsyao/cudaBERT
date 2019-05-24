@@ -211,7 +211,7 @@ float cuda_classify_train(bert *model,
                          int seq_length,
                          int num_classes,
                          int *attention_mask) {
-    model->BERT_train(words,
+    model->BERT_train_forward(words,
                       token_types,
                       batchsize,
                       seq_length,
@@ -439,36 +439,15 @@ void test_train(int batchsize, int seq_length, int nIter, bool base, int num_gpu
     int test_token_type_id_seed[11] = {0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1};
 
     int attention_mask[11] = {1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0};
-    int classes[8] = {1, 1, 1, 1, 1, 1, 1, 1};
+    int classes[batchsize] ;
+    for(int i = 0; i < batchsize; i++){
+        classes[i] = 1;
+    }
 
     int *test_word_id, *test_token_type_id, *test_attention_mask;
     test_word_id = filling_inputs(test_word_id_seed, seq_length, 11, batchsize);
     test_token_type_id = filling_inputs(test_token_type_id_seed, seq_length, 11, batchsize);
     test_attention_mask = filling_inputs(attention_mask, seq_length, 11, batchsize);
-
-    std::cout << "input_ids: " << std::endl;
-    for (int i = 0; i < batchsize * seq_length; i++) {
-        std::cout << test_word_id[i] << " ";
-        if(i % seq_length == seq_length - 1)
-            std::cout<< std::endl;
-    }
-    std::cout << std::endl;
-
-    std::cout << "segment_ids: " << std::endl;
-    for (int i = 0; i < batchsize * seq_length; i++) {
-        std::cout << test_token_type_id[i] << " ";
-        if(i % seq_length == seq_length - 1)
-            std::cout<< std::endl;
-    }
-    std::cout << std::endl;
-
-    std::cout << "input_mask: " << std::endl;
-    for (int i = 0; i < batchsize * seq_length; i++) {
-        std::cout << test_attention_mask[i] << " ";
-        if(i % seq_length == seq_length - 1)
-            std::cout<< std::endl;
-    }
-    std::cout << std::endl;
 
     std::cout << " Seq_length : " << seq_length << std::endl;
     std::cout << " Batchsize : " << batchsize << std::endl;
