@@ -1,8 +1,8 @@
 #include "dropout.cuh"
 
 template <typename T>
-void op_Dropout::forward(T *&output, T *input) {
-    output = handle->global_malloc_manage_float.get_new_head_point(n);
+void op_Dropout::forward(T *&output, T *input, int length) {
+    output = handle->global_malloc_manage_float.get_new_head_point(length);
 
     checkCUDNN(cudnnDropoutForward(cudnn,
                                    dropout_desc_,
@@ -15,7 +15,7 @@ void op_Dropout::forward(T *&output, T *input) {
 }
 
 template
-void op_Dropout::forward(float *&output, float *input);
+void op_Dropout::forward(float *&output, float *input, int length);
 
 template<typename T>
 void op_Dropout::backward(T *dout) {

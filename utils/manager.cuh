@@ -19,7 +19,13 @@
 extern "C"
 class global_handle {
     public:
-        global_handle (bool BERT_Large=false, std::string dir = "", bool optimRunningTime = true, bool isTrain = false, int num_classes = 2);
+        global_handle (int max_batchsize,
+                       int max_seq_length,
+                       bool BERT_Large=false,
+                       std::string dir = "", 
+                       bool optimRunningTime = true, 
+                       bool isTrain = false, 
+                       int num_classes = 2);
 
         ~global_handle();
 
@@ -55,15 +61,13 @@ class global_handle {
 
         size_t batchsize;
         size_t seq_length;
-        size_t max_train_batchsize = 64;
-        size_t max_train_seq_length = 512;
-        size_t max_seq_length = 512;
-        size_t max_mem_size = 200 * 512;
+        size_t max_train_batchsize;
+        size_t max_train_seq_length;
         float learning_rate = 0.001;
         float hidden_dropout_prob = 0.1;
         float attention_probs_dropout_prob = 0.1;
         bool update_learning_rate = false;
-        std::string optim_method = "sgd";
+        std::string optim_method;
         bool optim_running_time = true;
         bool is_train = false;
         float momentum_beta;

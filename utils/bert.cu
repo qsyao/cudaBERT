@@ -2,7 +2,9 @@
 #include "load_model.h"
 #include "../ops/linear.cuh"
 
-bert::bert(bool BERT_Large,
+bert::bert(int max_batchsize,
+           int max_seq_length,
+           bool BERT_Large,
            int num_gpu, 
            std::string dir, 
            bool is_train, 
@@ -11,7 +13,13 @@ bert::bert(bool BERT_Large,
            std::string optim_method, 
            float lr) {
     checkCudaErrors(cudaSetDevice(num_gpu));
-    handle = new global_handle(BERT_Large, dir, optimRunningTime, is_train, num_classes);
+    handle = new global_handle(max_batchsize,
+                               max_seq_length,
+                               BERT_Large, 
+                               dir, 
+                               optimRunningTime, 
+                               is_train, 
+                               num_classes);
     if (is_train) {
         // TODO: optim 参数
         if (optim_method == "sgd")
@@ -22,6 +30,7 @@ bert::bert(bool BERT_Large,
             handle->set_optim_momentum(lr);
     }
     init_ops();
+    handle->init_cudamemory(max_batchsize, max_seq_length);
 }
 
 void bert::init_ops() {
@@ -391,7 +400,9 @@ void bert::BERT_train_forward(
     float *embedding_dropout_out, *self_attention_dropout_out, *self_output_dropout_out;
 
     if (handle->is_train && handle->hidden_dropout_prob > 0 && handle->hidden_dropout_prob <= 1) {
-        embedding_dropout->forward(embedding_dropout_out, embedding_out);
+        embedding_dropout->forward(embedding_dropout_out,
+                                   embedding_out,
+                                   handle->batchsize * handle->seq_length * handle->hidden_size);
         tensor_layer = embedding_dropout_out;
     }
     for (int i = 0; i < handle->num_hidden_layers; i++) {
@@ -432,7 +443,10 @@ void bert::BERT_train_forward(
 
         // TODO: BertSelfAttention dropout
         if (handle->is_train && handle->attention_probs_dropout_prob > 0 && handle->attention_probs_dropout_prob <= 1) {
-            self_attention_dropout[i]->forward(self_attention_dropout_out, query_key_gemm);
+            self_attention_dropout[i]->forward(self_attention_dropout_out, 
+                                               query_key_gemm,
+                                               handle->batchsize * handle->num_attention_heads * 
+                                                    handle->seq_length * handle->seq_length);
             query_key_gemm = self_attention_dropout_out;
         }
 
@@ -459,7 +473,9 @@ void bert::BERT_train_forward(
 
         // TODO: BertSelfOutput dropout
         if (handle->is_train && handle->hidden_dropout_prob > 0 && handle->hidden_dropout_prob <= 1) {
-            self_output_dropout[i]->forward(self_output_dropout_out, merge_heads_out);
+            self_output_dropout[i]->forward(self_output_dropout_out, 
+                                            merge_heads_out,
+                                            handle->batchsize * handle->seq_length * handle->hidden_size);
             merge_heads_out = self_output_dropout_out;
         }
 
@@ -493,7 +509,9 @@ void bert::BERT_train_forward(
         // TODO: output_dropout
         if (handle->is_train && handle->hidden_dropout_prob > 0 && handle->hidden_dropout_prob <= 1) {
             float *output_dropout_out;
-            output_dropout[i]->forward(output_dropout_out, output_out);
+            output_dropout[i]->forward(output_dropout_out,
+                                       output_out,
+                                       handle->batchsize * handle->seq_length * handle->hidden_size);
             output_out = output_dropout_out;
         }
 
@@ -504,9 +522,6 @@ void bert::BERT_train_forward(
                                      num_words,
                                      hidden_size,
                                      attention_layernorm_out);
-
-        cudaEventRecord(handle->layer_compute_done, handle->cal_stream);
-        cudaEventSynchronize(handle->layer_compute_done);
 
 //        debug_tensor_gpu<float>(std::string("output_layernorm[i]->gamma"), output_layernorm[i]->gamma, 1, 1, 1);
 
@@ -537,7 +552,9 @@ float bert::classify_train(int *classes, float *pooler_out, size_t num_classes) 
 
     if (handle->is_train && handle->hidden_dropout_prob > 0 && handle->hidden_dropout_prob <= 1) {
         float *pooler_dropout_out;
-        pooler_dropout->forward(pooler_dropout_out, pooler_out);
+        pooler_dropout->forward(pooler_dropout_out, 
+                                pooler_out,
+                                handle->batchsize * handle->hidden_size);
         pooler_out = pooler_dropout_out;
     }
 

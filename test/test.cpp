@@ -3,7 +3,7 @@
 
 int main(int argc, char *argv[]){
    if (argc == 1) {
-       test_train(8, 200, 10, false);
+       test_train(8, 200, 100, false);
     //    bert_train(8, 200, false, 0);
    }
    else{

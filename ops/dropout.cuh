@@ -32,9 +32,8 @@ public:
     void *dropout_reserve_space;
 
 public:
-    op_Dropout(float dropR, global_handle *handle, int len) :
-            dropRate(dropR), op_kernel(handle) {
-        n = len;
+    op_Dropout(float dropR, global_handle *handle, int max_len) :
+            dropRate(dropR), op_kernel(handle), n(max_len) {
 
         checkCUDNN(cudnnCreate(&cudnn));
         checkCUDNN(cudnnCreateDropoutDescriptor(&dropout_desc_));
@@ -43,15 +42,15 @@ public:
         checkCUDNN(cudnnDropoutGetStatesSize(cudnn,
                                              &states_size_in_bytes_));
 
-        checkCudaErrors(cudaMalloc((void **)&states_data, states_size_in_bytes_ ));
+        checkCudaErrors(cudaMalloc((void **)&states_data, states_size_in_bytes_));
 
         checkCUDNN(cudnnSetDropoutDescriptor(dropout_desc_,
-                                  cudnn,
-                                  dropRate,
-                                  states_data,
-                                  states_size_in_bytes_,
-                /*Seed*/time(NULL)));
-        std::cout<<n<<std::endl;
+                                            cudnn,
+                                            dropRate,
+                                            states_data,
+                                            states_size_in_bytes_,
+                          /*Seed*/time(NULL)));
+        
         checkCUDNN(cudnnSetTensor4dDescriptor(data_desc_,
                                               CUDNN_TENSOR_NCHW,
                                               CUDNN_DATA_FLOAT,
@@ -59,12 +58,12 @@ public:
 
         checkCUDNN(cudnnDropoutGetReserveSpaceSize(data_desc_,
                                                   &reserve_space_size_in_bytes_));
-
-        checkCudaErrors(cudaMalloc((void **)&dropout_reserve_space, reserve_space_size_in_bytes_ * sizeof(float)));
+        
+        checkCudaErrors(cudaMalloc((void **)&dropout_reserve_space, reserve_space_size_in_bytes_));
     }
 
     template<typename T>
-    void forward(T *&output, T *input);
+    void forward(T *&output, T *input, int length);
 
     template<typename T>
     void backward(T *dout);

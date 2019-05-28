@@ -164,9 +164,26 @@ void convert_batch_example(void *tokenizer, int batch_size,
 
 extern "C" {
 
-bert *init_model(bool large = false, int num_gpu = 0, std::string dir = "", bool is_train = false, float lr = 0.001,
-                 std::string optim = "momentum", bool optimRunningTime = true, int num_classes = 2) {
-    bert *ret = new bert(large, num_gpu, dir, is_train, optimRunningTime, num_classes, optim, lr);
+bert *init_model(int max_batchsize,
+                 int max_seq_length,
+                 bool large = false, 
+                 int num_gpu = 0, 
+                 std::string dir = "", 
+                 bool is_train = false, 
+                 float lr = 0.001,
+                 std::string optim = "adam", 
+                 bool optimRunningTime = true, 
+                 int num_classes = 2) {
+    bert *ret = new bert(max_batchsize,
+                         max_seq_length,
+                         large, 
+                         num_gpu, 
+                         dir, 
+                         is_train, 
+                         optimRunningTime, 
+                         num_classes, 
+                         optim, 
+                         lr);
     return ret;
 }
 
@@ -221,7 +238,7 @@ float cuda_classify_train(bert *model,
 }
 
 void test_inference(int batchsize, int seq_length, int nIter, bool is_large, int num_gpu) {
-    bert *model = init_model(is_large, num_gpu);
+    bert *model = init_model(batchsize, seq_length, is_large, num_gpu);
 
     int test_word_id_seed[11] = {2040, 2001, 3958, 27227, 1029, 3958, 103,
                                  2001, 1037, 13997, 11510};
@@ -312,10 +329,10 @@ int generateSeed(int i) {
 void bert_train(int batchsize, int seq_length, bool is_large, int num_gpu) {
     bert* model;
     if(is_large){
-        model = init_model(is_large, num_gpu, "model_npy/init_large", true);
+        model = init_model(batchsize, seq_length, is_large, num_gpu, "model_npy/init_large", true);
     }
     else{
-        model = init_model(is_large, num_gpu, "model_npy/init_base", true);
+        model = init_model(batchsize, seq_length, is_large, num_gpu, "model_npy/init_base", true);
     }
 
 
@@ -423,7 +440,7 @@ void bert_train(int batchsize, int seq_length, bool is_large, int num_gpu) {
 }
 
 void test_train(int batchsize, int seq_length, int nIter, bool is_large, int num_gpu) {
-    bert *model = init_model(is_large, num_gpu, "", true);
+    bert *model = init_model(batchsize, seq_length, is_large, num_gpu, "", true);
 
     int test_word_id_seed[11] = {2040, 2001, 3958, 27227, 1029, 3958, 103,
                                  2001, 1037, 13997, 11510};
@@ -471,7 +488,7 @@ void test_train(int batchsize, int seq_length, int nIter, bool is_large, int num
         learning_rate *= learning_rate_decay;
         model->update_lr_end();
 
-        // printf("loss is %.10f\n", loss);
+        printf("loss is %.10f\n", loss);
 
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);

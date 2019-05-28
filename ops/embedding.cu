@@ -136,7 +136,7 @@ void Embedding::update_weights() {
 }
 
 template<typename T>
-void Embedding::backward(T *dout) {        debug_tensor_gpu<int>(std::string("nmb"), word_input, 128, 128, 8);
+void Embedding::backward(T *dout) {
     size_t batchsize = handle->batchsize;
     size_t seq_length = handle->seq_length;
     size_t hidden_size = handle->hidden_size;
@@ -160,7 +160,11 @@ void Embedding::backward(T *dout) {        debug_tensor_gpu<int>(std::string("nm
         int *word_id_use = (int *) malloc(sizeof(int) * len_word_embedding / hidden_size);
         memset(word_id_use, 0, sizeof(int) * len_word_embedding / hidden_size);
         int *word_input_cpu = (int *) malloc(sizeof(int) * total_words);
-        checkCudaErrors(cudaMemcpy(word_input_cpu, word_input, sizeof(int) * total_words, cudaMemcpyDeviceToHost));
+        checkCudaErrors(cudaMemcpyAsync(word_input_cpu, 
+                                   word_input, 
+                                   sizeof(int) * total_words, 
+                                   cudaMemcpyDeviceToHost,
+                                   handle->cal_stream));
 
         int *word_pos = handle->global_malloc_manage_int.get_new_head_point(total_words);
         int *word_pos_cpu = (int *) malloc(sizeof(int) * total_words);
@@ -174,7 +178,11 @@ void Embedding::backward(T *dout) {        debug_tensor_gpu<int>(std::string("nm
                     word_pos_cpu[count++] = j;
                 j++;
             }
-            checkCudaErrors(cudaMemcpy(word_pos, word_pos_cpu, sizeof(int) * count, cudaMemcpyHostToDevice));
+            checkCudaErrors(cudaMemcpyAsync(word_pos, 
+                                            word_pos_cpu, 
+                                            sizeof(int) * count, 
+                                            cudaMemcpyHostToDevice,
+                                            handle->cal_stream));
             dim3 threads(min(32, count), 1, 1);
             dim3 blocks(hidden_size, 1, 1);
             DeviceApplyEmbeddingsGrad << < blocks, threads, 0, handle->cal_stream >> > (
@@ -187,12 +195,18 @@ void Embedding::backward(T *dout) {        debug_tensor_gpu<int>(std::string("nm
                             word_pos
             );
         }
+        free(word_id_use);
+        free(word_input_cpu);
     }
     {
         int *token_type_id_use = (int *) malloc(sizeof(int) * len_token_type_embedding / hidden_size);
         memset(token_type_id_use, 0, sizeof(int) * len_token_type_embedding / hidden_size);
         int *token_type_input_cpu = (int *) malloc(sizeof(int) * total_words);
-        checkCudaErrors(cudaMemcpy(token_type_input_cpu, token_type_input, sizeof(int) * total_words, cudaMemcpyDeviceToHost));
+        checkCudaErrors(cudaMemcpyAsync(token_type_input_cpu, 
+                                        token_type_input, 
+                                        sizeof(int) * total_words, 
+                                        cudaMemcpyDeviceToHost,
+                                        handle->cal_stream));
 
         int *token_type_pos = handle->global_malloc_manage_int.get_new_head_point(total_words);
         int *token_type_pos_cpu = (int *) malloc(sizeof(int) * total_words);
@@ -206,7 +220,11 @@ void Embedding::backward(T *dout) {        debug_tensor_gpu<int>(std::string("nm
                     token_type_pos_cpu[count++] = j;
                 j++;
             }
-            checkCudaErrors(cudaMemcpy(token_type_pos, token_type_pos_cpu, sizeof(int) * count, cudaMemcpyHostToDevice));
+            checkCudaErrors(cudaMemcpyAsync(token_type_pos, 
+                                            token_type_pos_cpu, 
+                                            sizeof(int) * count, 
+                                            cudaMemcpyHostToDevice,
+                                            handle->cal_stream));
             dim3 threads(min(32, count), 1, 1);
             dim3 blocks(hidden_size, 1, 1);
             DeviceApplyEmbeddingsGrad << < blocks, threads, 0, handle->cal_stream >> > (
@@ -219,14 +237,19 @@ void Embedding::backward(T *dout) {        debug_tensor_gpu<int>(std::string("nm
                             token_type_pos
             );
         }
-//        debug_tensor_gpu<float>(std::string("grad_token_type_embedding"), grad_token_type_embedding, 3, hidden_size, 2);
+        free(token_type_id_use);
+        free(token_type_input_cpu);
     }
 
     {
         int *position_id_use = (int *) malloc(sizeof(int) * len_position_embedding / hidden_size);
         memset(position_id_use, 0, sizeof(int) * len_position_embedding / hidden_size);
         int *position_input_cpu = (int *) malloc(sizeof(int) * total_words);
-        checkCudaErrors(cudaMemcpy(position_input_cpu, position_input, sizeof(int) * total_words, cudaMemcpyDeviceToHost));
+        checkCudaErrors(cudaMemcpyAsync(position_input_cpu, 
+                                        position_input, 
+                                        sizeof(int) * total_words, 
+                                        cudaMemcpyDeviceToHost,
+                                        handle->cal_stream));
 
         int *position_pos = handle->global_malloc_manage_int.get_new_head_point(total_words);
         int *position_pos_cpu = (int *) malloc(sizeof(int) * total_words);
@@ -240,7 +263,11 @@ void Embedding::backward(T *dout) {        debug_tensor_gpu<int>(std::string("nm
                     position_pos_cpu[count++] = j;
                 j++;
             }
-            checkCudaErrors(cudaMemcpy(position_pos, position_pos_cpu, sizeof(int) * count, cudaMemcpyHostToDevice));
+            checkCudaErrors(cudaMemcpyAsync(position_pos, 
+                                            position_pos_cpu, 
+                                            sizeof(int) * count, 
+                                            cudaMemcpyHostToDevice,
+                                            handle->cal_stream));
             dim3 threads(min(32, count), 1, 1);
             dim3 blocks(hidden_size, 1, 1);
             DeviceApplyEmbeddingsGrad << < blocks, threads, 0, handle->cal_stream >> > (
@@ -253,7 +280,8 @@ void Embedding::backward(T *dout) {        debug_tensor_gpu<int>(std::string("nm
                             position_pos
             );
         }
-//        debug_tensor_gpu<float>(std::string("grad_position_embedding"), grad_position_embedding, 3, hidden_size, 3);
+        free(position_id_use);
+        free(position_input_cpu);
     }
 
     if (handle->optim_running_time)
