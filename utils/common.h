@@ -131,15 +131,6 @@ class malloc_manage {
         layer_start = head;
     }
 
-
-    void recerd_optim_start() {
-        optim_start = head;
-    }
-
-    void reuse_optim_mem() {
-        head = optim_start;
-    }
-
     void reuse_layer_mem(){
         head = layer_start;
     }

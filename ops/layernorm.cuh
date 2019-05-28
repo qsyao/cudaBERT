@@ -30,11 +30,11 @@ class op_LayerNorm : public op_kernel{
                     beta_2 = handle->beta_2;
                     beta_1_t = 1.0;
                     beta_2_t = 1.0;
-                    checkCudaErrors(cudaMalloc((void **)&gamma_m_t, n));
-                    checkCudaErrors(cudaMalloc((void **)&gamma_v_t, n));
+                    checkCudaErrors(cudaMalloc((void **)&gamma_m_t, n * sizeof(float)));
+                    checkCudaErrors(cudaMalloc((void **)&gamma_v_t, n * sizeof(float)));
 
-                    checkCudaErrors(cudaMalloc((void **)&beta_m_t, n));
-                    checkCudaErrors(cudaMalloc((void **)&beta_v_t, n));
+                    checkCudaErrors(cudaMalloc((void **)&beta_m_t, n * sizeof(float)));
+                    checkCudaErrors(cudaMalloc((void **)&beta_v_t, n * sizeof(float)));
 
                     adam_epsilon = handle->epsilon;
                     step = 0;
@@ -42,8 +42,8 @@ class op_LayerNorm : public op_kernel{
             }
             else if(handle->optim_method == "momentum") {
                 if(n != -1) {
-                    checkCudaErrors(cudaMalloc((void **)&momentum_gamma_v, n));
-                    checkCudaErrors(cudaMalloc((void **)&momentum_beta_v, n));
+                    checkCudaErrors(cudaMalloc((void **)&momentum_gamma_v, n * sizeof(float)));
+                    checkCudaErrors(cudaMalloc((void **)&momentum_beta_v, n * sizeof(float)));
 
                     learning_rate = handle->learning_rate;
                     momentum_beta = handle->momentum_beta;

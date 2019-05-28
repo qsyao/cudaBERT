@@ -55,6 +55,8 @@ class global_handle {
 
         size_t batchsize;
         size_t seq_length;
+        size_t max_train_batchsize = 64;
+        size_t max_train_seq_length = 512;
         size_t max_seq_length = 512;
         size_t max_mem_size = 200 * 512;
         float learning_rate = 0.001;

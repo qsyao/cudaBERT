@@ -84,19 +84,19 @@ op_BatchedLinear::op_BatchedLinear(std::string key_query_kernel,
             beta_1_t = 1.0;
             beta_2_t = 1.0;
 
-            checkCudaErrors(cudaMalloc((void **)&query_kernel_m_t, n1));
-            checkCudaErrors(cudaMalloc((void **)&query_kernel_v_t, n1));
-            checkCudaErrors(cudaMalloc((void **)&key_kernel_m_t, n1));
-            checkCudaErrors(cudaMalloc((void **)&key_kernel_v_t, n1));
-            checkCudaErrors(cudaMalloc((void **)&val_kernel_m_t, n1));
-            checkCudaErrors(cudaMalloc((void **)&val_kernel_v_t, n1));
+            checkCudaErrors(cudaMalloc((void **)&query_kernel_m_t, n1 * sizeof(float)));
+            checkCudaErrors(cudaMalloc((void **)&query_kernel_v_t, n1 * sizeof(float)));
+            checkCudaErrors(cudaMalloc((void **)&key_kernel_m_t, n1 * sizeof(float)));
+            checkCudaErrors(cudaMalloc((void **)&key_kernel_v_t, n1 * sizeof(float)));
+            checkCudaErrors(cudaMalloc((void **)&val_kernel_m_t, n1 * sizeof(float)));
+            checkCudaErrors(cudaMalloc((void **)&val_kernel_v_t, n1 * sizeof(float)));
 
-            checkCudaErrors(cudaMalloc((void **)&query_bias_m_t, n2));
-            checkCudaErrors(cudaMalloc((void **)&query_bias_v_t, n2));
-            checkCudaErrors(cudaMalloc((void **)&key_bias_m_t, n2));
-            checkCudaErrors(cudaMalloc((void **)&key_bias_v_t, n2));
-            checkCudaErrors(cudaMalloc((void **)&val_bias_m_t, n2));
-            checkCudaErrors(cudaMalloc((void **)&val_bias_v_t, n2));
+            checkCudaErrors(cudaMalloc((void **)&query_bias_m_t, n2 * sizeof(float)));
+            checkCudaErrors(cudaMalloc((void **)&query_bias_v_t, n2 * sizeof(float)));
+            checkCudaErrors(cudaMalloc((void **)&key_bias_m_t, n2 * sizeof(float)));
+            checkCudaErrors(cudaMalloc((void **)&key_bias_v_t, n2 * sizeof(float)));
+            checkCudaErrors(cudaMalloc((void **)&val_bias_m_t, n2 * sizeof(float)));
+            checkCudaErrors(cudaMalloc((void **)&val_bias_v_t, n2 * sizeof(float)));
 
             weight_decay_rate = handle->weight_decay_rate;
             beta_1 = handle->beta_1;
@@ -105,14 +105,14 @@ op_BatchedLinear::op_BatchedLinear(std::string key_query_kernel,
             step = 0;
         }
         else if(handle->optim_method == "momentum") {
-            checkCudaErrors(cudaMalloc((void **)&momentum_query_kernel_v, n1));
-            checkCudaErrors(cudaMalloc((void **)&momentum_query_bias_v, n2));
+            checkCudaErrors(cudaMalloc((void **)&momentum_query_kernel_v, n1 * sizeof(float)));
+            checkCudaErrors(cudaMalloc((void **)&momentum_query_bias_v, n2 * sizeof(float)));
 
-            checkCudaErrors(cudaMalloc((void **)&momentum_key_kernel_v, n1));
-            checkCudaErrors(cudaMalloc((void **)&momentum_key_bias_v, n2));
+            checkCudaErrors(cudaMalloc((void **)&momentum_key_kernel_v, n1 * sizeof(float)));
+            checkCudaErrors(cudaMalloc((void **)&momentum_key_bias_v, n2 * sizeof(float)));
 
-            checkCudaErrors(cudaMalloc((void **)&momentum_val_kernel_v, n1));
-            checkCudaErrors(cudaMalloc((void **)&momentum_key_bias_v, n2));
+            checkCudaErrors(cudaMalloc((void **)&momentum_val_kernel_v, n1 * sizeof(float)));
+            checkCudaErrors(cudaMalloc((void **)&momentum_key_bias_v, n2 * sizeof(float)));
 
             learning_rate = handle->learning_rate;
             momentum_beta = handle->momentum_beta;

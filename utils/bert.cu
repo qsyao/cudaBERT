@@ -95,17 +95,24 @@ void bert::init_ops() {
         if (handle->is_train) {
             if (handle->hidden_dropout_prob > 0 && handle->hidden_dropout_prob <= 1) {
                 // BertOutput dropout
-                op_Dropout *dropout = new op_Dropout(handle->hidden_dropout_prob, handle);
+                op_Dropout *dropout = new op_Dropout(handle->hidden_dropout_prob, 
+                                                     handle,
+                                                     handle->max_train_batchsize * handle->max_train_seq_length * handle->hidden_size);
                 output_dropout.push_back(dropout);
 
                 // BertSelfOutput dropout
-                dropout = new op_Dropout(handle->hidden_dropout_prob, handle);
+                dropout = new op_Dropout(handle->hidden_dropout_prob, 
+                                         handle,
+                                         handle->max_train_batchsize * handle->max_train_seq_length * handle->hidden_size);
                 self_output_dropout.push_back(dropout);
             }
 
             if (handle->attention_probs_dropout_prob > 0 && handle->attention_probs_dropout_prob <= 1) {
                 // BertSelfAttention dropout
-                op_Dropout *dropout = new op_Dropout(handle->attention_probs_dropout_prob, handle);
+                op_Dropout *dropout = new op_Dropout(handle->attention_probs_dropout_prob,
+                                                     handle,
+                                                     handle->max_train_batchsize * handle->num_attention_heads
+                                                     * handle->max_train_seq_length * handle->max_train_seq_length);
                 self_attention_dropout.push_back(dropout);
             }
         }
@@ -123,7 +130,7 @@ void bert::init_ops() {
                                     handle, 
                                     handle->hidden_size * handle->num_classes, 
                                     handle->num_classes);
-
+    
     loss = new op_CrossEntropyLoss(handle);
 
     classify_softmax = new op_SoftMax(handle);
@@ -132,17 +139,17 @@ void bert::init_ops() {
 
     if (handle->is_train && handle->hidden_dropout_prob > 0 && handle->hidden_dropout_prob <= 1) {
         // pooler dropout
-        pooler_dropout = new op_Dropout(handle->hidden_dropout_prob, handle);
+        pooler_dropout = new op_Dropout(handle->hidden_dropout_prob, 
+                                        handle,
+                                        handle->max_train_batchsize * handle->hidden_size);
         // embedding dropout
-        embedding_dropout = new op_Dropout(handle->hidden_dropout_prob, handle);
+        embedding_dropout = new op_Dropout(handle->hidden_dropout_prob, 
+                                           handle,
+                                           handle->max_train_batchsize * handle->max_train_seq_length * handle->hidden_size);
     }
 
     op_tanh = new op_Tanh(handle);
 
-    if (handle->is_train) {
-        handle->global_malloc_manage_float.recerd_optim_start();
-        handle->global_malloc_manage_int.recerd_optim_start();
-    }
 }
 
 void bert::update_lr_start(double lr) {
@@ -371,15 +378,9 @@ void bert::BERT_train_forward(
     size_t intermediate_size = handle->intermediate_size;
 
     handle->set_scale(batchsize, seq_length);
-    if (handle->is_train) {
-        handle->global_malloc_manage_float.reuse_optim_mem();
-        handle->global_malloc_manage_int.reuse_optim_mem();
-    } else {
-        handle->reset();
-    }
+
     int *positions;
     copy_inputs(words, token_types, positions, attention_mask);
-
 
     float *embedding_out;
 
@@ -390,9 +391,7 @@ void bert::BERT_train_forward(
     float *embedding_dropout_out, *self_attention_dropout_out, *self_output_dropout_out;
 
     if (handle->is_train && handle->hidden_dropout_prob > 0 && handle->hidden_dropout_prob <= 1) {
-        embedding_dropout->forward(embedding_dropout_out, 
-                                   embedding_out,
-                                   handle->batchsize * handle->seq_length * handle->hidden_size);
+        embedding_dropout->forward(embedding_dropout_out, embedding_out);
         tensor_layer = embedding_dropout_out;
     }
     for (int i = 0; i < handle->num_hidden_layers; i++) {
@@ -433,9 +432,7 @@ void bert::BERT_train_forward(
 
         // TODO: BertSelfAttention dropout
         if (handle->is_train && handle->attention_probs_dropout_prob > 0 && handle->attention_probs_dropout_prob <= 1) {
-            self_attention_dropout[i]->forward(self_attention_dropout_out, query_key_gemm,
-                                               handle->batchsize * handle->num_attention_heads * handle->seq_length *
-                                               handle->seq_length);
+            self_attention_dropout[i]->forward(self_attention_dropout_out, query_key_gemm);
             query_key_gemm = self_attention_dropout_out;
         }
 
@@ -462,8 +459,7 @@ void bert::BERT_train_forward(
 
         // TODO: BertSelfOutput dropout
         if (handle->is_train && handle->hidden_dropout_prob > 0 && handle->hidden_dropout_prob <= 1) {
-            self_output_dropout[i]->forward(self_output_dropout_out, merge_heads_out,
-                                            handle->batchsize * handle->seq_length * handle->hidden_size);
+            self_output_dropout[i]->forward(self_output_dropout_out, merge_heads_out);
             merge_heads_out = self_output_dropout_out;
         }
 
@@ -497,8 +493,7 @@ void bert::BERT_train_forward(
         // TODO: output_dropout
         if (handle->is_train && handle->hidden_dropout_prob > 0 && handle->hidden_dropout_prob <= 1) {
             float *output_dropout_out;
-            output_dropout[i]->forward(output_dropout_out, output_out,
-                                       handle->batchsize * handle->seq_length * handle->hidden_size);
+            output_dropout[i]->forward(output_dropout_out, output_out);
             output_out = output_dropout_out;
         }
 
@@ -542,7 +537,7 @@ float bert::classify_train(int *classes, float *pooler_out, size_t num_classes) 
 
     if (handle->is_train && handle->hidden_dropout_prob > 0 && handle->hidden_dropout_prob <= 1) {
         float *pooler_dropout_out;
-        pooler_dropout->forward(pooler_dropout_out, pooler_out, handle->batchsize * handle->hidden_size);
+        pooler_dropout->forward(pooler_dropout_out, pooler_out);
         pooler_out = pooler_dropout_out;
     }
 

@@ -136,7 +136,7 @@ void Embedding::update_weights() {
 }
 
 template<typename T>
-void Embedding::backward(T *dout) {
+void Embedding::backward(T *dout) {        debug_tensor_gpu<int>(std::string("nmb"), word_input, 128, 128, 8);
     size_t batchsize = handle->batchsize;
     size_t seq_length = handle->seq_length;
     size_t hidden_size = handle->hidden_size;

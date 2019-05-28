@@ -34,21 +34,19 @@ public:
                 beta_2 = handle->beta_2;
                 beta_1_t = 1.0;
                 beta_2_t = 1.0;
-                word_m_t = handle->global_malloc_manage_float.get_new_head_point(len_word_embedding);
-                word_v_t = handle->global_malloc_manage_float.get_new_head_point(len_word_embedding);
-
-                position_m_t = handle->global_malloc_manage_float.get_new_head_point(len_position_embedding);
-                position_v_t = handle->global_malloc_manage_float.get_new_head_point(len_position_embedding);
-
-                token_type_m_t = handle->global_malloc_manage_float.get_new_head_point(len_token_type_embedding);
-                token_type_v_t = handle->global_malloc_manage_float.get_new_head_point(len_token_type_embedding);
+                checkCudaErrors(cudaMalloc((void **)&word_m_t, len_word_embedding * sizeof(float)));
+                checkCudaErrors(cudaMalloc((void **)&word_v_t, len_word_embedding * sizeof(float)));
+                checkCudaErrors(cudaMalloc((void **)&position_m_t, len_position_embedding * sizeof(float)));
+                checkCudaErrors(cudaMalloc((void **)&position_v_t, len_position_embedding * sizeof(float)));
+                checkCudaErrors(cudaMalloc((void **)&token_type_m_t, len_token_type_embedding * sizeof(float)));
+                checkCudaErrors(cudaMalloc((void **)&token_type_v_t, len_token_type_embedding * sizeof(float)));
 
                 adam_epsilon = handle->epsilon;
                 step = 0;
             } else if (handle->optim_method == "momentum") {
-                momentum_word_v = handle->global_malloc_manage_float.get_new_head_point(len_word_embedding);
-                momentum_position_v = handle->global_malloc_manage_float.get_new_head_point(len_position_embedding);
-                momentum_token_type_v = handle->global_malloc_manage_float.get_new_head_point(len_token_type_embedding);
+                checkCudaErrors(cudaMalloc((void **)&momentum_word_v, len_word_embedding * sizeof(float)));
+                checkCudaErrors(cudaMalloc((void **)&momentum_position_v, len_position_embedding * sizeof(float)));
+                checkCudaErrors(cudaMalloc((void **)&momentum_token_type_v, len_token_type_embedding * sizeof(float)));
 
                 learning_rate = handle->learning_rate;
                 momentum_beta = handle->momentum_beta;

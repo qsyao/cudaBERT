@@ -32,9 +32,10 @@ public:
     void *dropout_reserve_space;
 
 public:
-    op_Dropout(float dropR, global_handle *handle) :
+    op_Dropout(float dropR, global_handle *handle, int len) :
             dropRate(dropR), op_kernel(handle) {
-        //TODO
+        n = len;
+
         checkCUDNN(cudnnCreate(&cudnn));
         checkCUDNN(cudnnCreateDropoutDescriptor(&dropout_desc_));
         checkCUDNN(cudnnCreateTensorDescriptor(&data_desc_));
@@ -42,7 +43,7 @@ public:
         checkCUDNN(cudnnDropoutGetStatesSize(cudnn,
                                              &states_size_in_bytes_));
 
-        states_data = handle->global_malloc_manage_float.get_new_head_point(states_size_in_bytes_);
+        checkCudaErrors(cudaMalloc((void **)&states_data, states_size_in_bytes_ ));
 
         checkCUDNN(cudnnSetDropoutDescriptor(dropout_desc_,
                                   cudnn,
@@ -50,10 +51,20 @@ public:
                                   states_data,
                                   states_size_in_bytes_,
                 /*Seed*/time(NULL)));
-    };
+        std::cout<<n<<std::endl;
+        checkCUDNN(cudnnSetTensor4dDescriptor(data_desc_,
+                                              CUDNN_TENSOR_NCHW,
+                                              CUDNN_DATA_FLOAT,
+                                              n, 1, 1, 1));
+
+        checkCUDNN(cudnnDropoutGetReserveSpaceSize(data_desc_,
+                                                  &reserve_space_size_in_bytes_));
+
+        checkCudaErrors(cudaMalloc((void **)&dropout_reserve_space, reserve_space_size_in_bytes_ * sizeof(float)));
+    }
 
     template<typename T>
-    void forward(T *&output, T *input, int len);
+    void forward(T *&output, T *input);
 
     template<typename T>
     void backward(T *dout);
