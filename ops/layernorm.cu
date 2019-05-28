@@ -4,11 +4,8 @@
 #include "../utils/common.h"
 #include "../utils/manager.cuh"
 
-template<typename U> __device__ U
-rsqrt(U
-v) {
-return U(1) /
-sqrt(v);
+template<typename U> __device__ U rsqrt(U v) {
+    return U(1) / sqrt(v);
 }
 
 template<typename U>
@@ -216,7 +213,6 @@ void op_LayerNorm::forward(
     if(handle->is_train) {
         mean = handle->global_malloc_manage_float.get_new_head_point(n1);
         invvar = handle->global_malloc_manage_float.get_new_head_point(n1);
-        // 经过了残差连接
         stored_input = handle->global_malloc_manage_float.get_new_head_point(n1 * n2);
         output = handle->global_malloc_manage_float.get_new_head_point(n1 * n2);
     }
@@ -338,22 +334,19 @@ __global__ void cuComputePartGradGammaBeta(
         T epsilon,
         T *part_grad_gamma,
         T *part_grad_beta) {
-    // 每块大小为blockDim.y * blockDim.y
-    // 每个n1会占据多少个内存块
+
     const int numsegs_n1 = (n1 + blockDim.y * blockDim.y - 1) / (blockDim.y * blockDim.y);
     const int segs_per_block = (numsegs_n1 + gridDim.y - 1) / gridDim.y;
     const int i1_beg = blockIdx.y * segs_per_block * blockDim.y * blockDim.y;
-    // i1_beg_plus_one只是确定终点
     const int i1_beg_plus_one = (blockIdx.y + 1) * segs_per_block * blockDim.y * blockDim.y;
     const int i1_end = i1_beg_plus_one < n1 ? i1_beg_plus_one : n1;
-    // 步长
+
     const int row_stride = blockDim.x + 1;
     const int thr_load_col_off = (threadIdx.x * blockDim.y) & (blockDim.x - 1);
     const int thr_load_row_off = (threadIdx.x * blockDim.y) / blockDim.x + threadIdx.y * blockDim.y;
     const int i2_off = blockIdx.x * blockDim.x + thr_load_col_off;
     SharedMemory<T> shared;
     T *buf = shared.getPointer(); // buf has at least blockDim.x * blockDim.y * blockDim.y + (blockDim.y - 1)*(blockDim.x/blockDim.y) elements
-    // 有两部分的buf，长度分别为blockDim.x * blockDim.y * blockDim.y   和  (blockDim.y - 1)*(blockDim.x/blockDim.y)
     T *warp_buf1 = (T *) buf;
     T *warp_buf2 = warp_buf1 + blockDim.y * blockDim.y * row_stride;
     // compute partial sums from strided inputs
@@ -416,7 +409,6 @@ __global__ void cuComputeGradGammaBeta(
     int i2 = blockIdx.x * blockDim.x + threadIdx.x;
     if (i2 < n2) {
         // each warp does sequential reductions until reduced part_size is num_warps
-        // 每个warp执行连续减少，直到减少的part_size为num_warps
         int num_warp_reductions = part_size / blockDim.y;
         T sum_gamma = T(0);
         T sum_beta = T(0);

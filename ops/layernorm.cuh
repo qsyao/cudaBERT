@@ -30,19 +30,21 @@ class op_LayerNorm : public op_kernel{
                     beta_2 = handle->beta_2;
                     beta_1_t = 1.0;
                     beta_2_t = 1.0;
-                    gamma_m_t = handle->global_malloc_manage_float.get_new_head_point(n);
-                    gamma_v_t = handle->global_malloc_manage_float.get_new_head_point(n);
+                    checkCudaErrors(cudaMalloc((void **)&gamma_m_t, n));
+                    checkCudaErrors(cudaMalloc((void **)&gamma_v_t, n));
 
-                    beta_m_t = handle->global_malloc_manage_float.get_new_head_point(n);
-                    beta_v_t = handle->global_malloc_manage_float.get_new_head_point(n);
+                    checkCudaErrors(cudaMalloc((void **)&beta_m_t, n));
+                    checkCudaErrors(cudaMalloc((void **)&beta_v_t, n));
+
                     adam_epsilon = handle->epsilon;
                     step = 0;
                 }
             }
             else if(handle->optim_method == "momentum") {
                 if(n != -1) {
-                    momentum_gamma_v = handle->global_malloc_manage_float.get_new_head_point(n);
-                    momentum_beta_v = handle->global_malloc_manage_float.get_new_head_point(n);
+                    checkCudaErrors(cudaMalloc((void **)&momentum_gamma_v, n));
+                    checkCudaErrors(cudaMalloc((void **)&momentum_beta_v, n));
+
                     learning_rate = handle->learning_rate;
                     momentum_beta = handle->momentum_beta;
                     step = 0;

@@ -220,8 +220,8 @@ float cuda_classify_train(bert *model,
     return output_gpu;
 }
 
-void test_inference(int batchsize, int seq_length, int nIter, bool base, int num_gpu) {
-    bert *model = init_model(base, num_gpu);
+void test_inference(int batchsize, int seq_length, int nIter, bool is_large, int num_gpu) {
+    bert *model = init_model(is_large, num_gpu);
 
     int test_word_id_seed[11] = {2040, 2001, 3958, 27227, 1029, 3958, 103,
                                  2001, 1037, 13997, 11510};
@@ -309,9 +309,15 @@ int generateSeed(int i) {
     return rand() % i;
 }
 
-void bert_train(int batchsize, int seq_length, int nIter, bool base, int num_gpu) {
+void bert_train(int batchsize, int seq_length, bool is_large, int num_gpu) {
+    bert* model;
+    if(is_large){
+        model = init_model(is_large, num_gpu, "model_npy/init_large", true);
+    }
+    else{
+        model = init_model(is_large, num_gpu, "model_npy/init_base", true);
+    }
 
-    bert *model = init_model(base, num_gpu, "", true);
 
     int input_ids[batchsize * seq_length];
     int input_mask[batchsize * seq_length];
@@ -324,66 +330,46 @@ void bert_train(int batchsize, int seq_length, int nIter, bool base, int num_gpu
     std::vector <std::string> text_a;
     std::vector <std::string> text_b;
     std::vector<int> gt_classes;
-    read_tsv("/home/wenxh/zyc/bert_train/cuda_bert/data/deepqa_train_10w.tsv", text_a, gt_classes);
+    read_tsv("deepqa_train_10w.tsv", text_a, gt_classes);
 
     int tot_line_len = text_a.size();
     srand(time(NULL));
     std::vector<int> text_id(tot_line_len);
     for (int i = 0; i < tot_line_len; i++)
         text_id[i] = i;
-    void *tokenizer = cubert_open_tokenizer("/home/wenxh/zyc/bert_train/cuda_bert/data/vocab.txt", true);
+    void *tokenizer = cubert_open_tokenizer("vocab.txt", true);
 
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
 
     double total_time = 0;
-    double min_loss = 1e18;
+    double min_loss = 1e-10;
     int num_labels = 2;
-    int outputRand = 0;
-    float learning_rate = 0.001;
-    float learning_rate_decay = 0.99;
-    for (int i = 0; i < nIter; i++) {
+    float learning_rate = 0.01;
+    float learning_rate_decay = 0.5;
+    int epoch = 0;
+    int iter_per_epoch = tot_line_len / batchsize + (tot_line_len % batchsize == 0 ? 0 : 1);
+    while (1) {
 //         TODO: random
 //        random_shuffle(text_id.begin(), text_id.end(), generateSeed);
         double now_loss = 0;
-        for (int j = 0; j < tot_line_len / batchsize + (tot_line_len % batchsize == 0 ? 0 : 1); j++) {
+        for (int j = 0; j < iter_per_epoch; j++) {
             std::vector<int> tmp_text_id;
             for (int k = j * batchsize; k < min((j + 1) * batchsize, tot_line_len); k++)
                 tmp_text_id.push_back(text_id[k]);
 
-            convert_batch_example(tokenizer, batchsize, seq_length, text_a, text_b, gt_classes, tmp_text_id, input_ids,
+            convert_batch_example(tokenizer, 
+                                  batchsize, 
+                                  seq_length, 
+                                  text_a, 
+                                  text_b, 
+                                  gt_classes, 
+                                  tmp_text_id, 
+                                  input_ids,
                                   segment_ids,
-                                  input_mask, classes);
-
-//            std::cout << "input_ids: " << std::endl;
-//            for (int i = 0; i < batchsize * seq_length; i++) {
-//                std::cout << input_ids[i] << " ";
-//                if(i % seq_length == seq_length - 1)
-//                    std::cout<< std::endl;
-//            }
-//            std::cout << std::endl;
-//
-//            std::cout << "segment_ids: " << std::endl;
-//            for (int i = 0; i < batchsize * seq_length; i++) {
-//                std::cout << segment_ids[i] << " ";
-//                if(i % seq_length == seq_length - 1)
-//                    std::cout<< std::endl;
-//            }
-//            std::cout << std::endl;
-//
-//            std::cout << "input_mask: " << std::endl;
-//            for (int i = 0; i < batchsize * seq_length; i++) {
-//                std::cout << input_mask[i] << " ";
-//                if(i % seq_length == seq_length - 1)
-//                    std::cout<< std::endl;
-//            }
-//            std::cout << std::endl;
-//
-//            std::cout << "label: " << std::endl;
-//            for (int i = 0; i < batchsize; i++)
-//                std::cout << classes[i] << " ";
-//            std::cout << std::endl;
+                                  input_mask, 
+                                  classes);
 
             float it_time;
             cudaEventRecord(start);
@@ -403,36 +389,41 @@ void bert_train(int batchsize, int seq_length, int nIter, bool base, int num_gpu
                     input_mask
             );
 
-            learning_rate *= learning_rate_decay;
-            model->update_lr_end();
-            now_loss += loss * tmp_batchsize;
-
-//            std::cout << "temp batch loss: " << (*cpu_mem) << std::endl;
-            if(j % 200 == 199) {
-                std::cout << "outputRand: " << outputRand << std::endl;
-                std::cout << "average loss: " << std::fixed << std::setprecision(10) << now_loss / min( (j+1) * batchsize, tot_line_len) << std::endl;
-                outputRand++;
+            now_loss += loss;
+            if(j < 50 && epoch == 0){
+                std::cout<<loss<<std::endl;
             }
+
             cudaEventRecord(stop);
             cudaEventSynchronize(stop);
             cudaEventElapsedTime(&it_time, start, stop);
             total_time += it_time;
+        
+            if(j % 50 == 49) {
+                std::cout << " Iter: " << j << " epoch : " << epoch * iter_per_epoch;
+                std::cout << " Time: " << total_time / 50 << "ms";
+                std::cout << " average loss: " << now_loss / 50 << std::endl;
+                now_loss = 0;
+                total_time = 0;
+            }
+
+        if(min_loss > loss){
+            std::cout << "Training Ending with loss < 1e-10" << std::endl;
+            break;
         }
-        if(min_loss > now_loss)
-            min_loss = now_loss;
-        std::cout << "Round " << i + 1<< ": " << std::endl;
-        std::cout << "***************  now_loss  *************" << std::endl;
-        std::cout << "***************  " << std::fixed << std::setprecision(10) << now_loss / tot_line_len << "  *************" << std::endl;
-        std::cout << "***************  min_loss  *************" << std::endl;
-        std::cout << "***************  " << std::fixed << std::setprecision(10) << min_loss / tot_line_len << "  *************" << std::endl;
+            
+        }
+        epoch += 1;
+        learning_rate *= learning_rate_decay;
+        model->update_lr_end();
     }
 
     cubert_close_tokenizer(tokenizer);
     delete model;
 }
 
-void test_train(int batchsize, int seq_length, int nIter, bool base, int num_gpu) {
-    bert *model = init_model(base, num_gpu, "", true);
+void test_train(int batchsize, int seq_length, int nIter, bool is_large, int num_gpu) {
+    bert *model = init_model(is_large, num_gpu, "", true);
 
     int test_word_id_seed[11] = {2040, 2001, 3958, 27227, 1029, 3958, 103,
                                  2001, 1037, 13997, 11510};
@@ -463,7 +454,7 @@ void test_train(int batchsize, int seq_length, int nIter, bool base, int num_gpu
     float learning_rate = 0.001;
     float learning_rate_decay = 0.99;
     for (int i = 0; i < nIter; i++) {
-        printf("Round: %d\n", i);
+        // printf("Round: %d\n", i);
         float it_time;
         cudaEventRecord(start);
         model->update_lr_start(learning_rate);
@@ -480,7 +471,7 @@ void test_train(int batchsize, int seq_length, int nIter, bool base, int num_gpu
         learning_rate *= learning_rate_decay;
         model->update_lr_end();
 
-        printf("loss is %.10f\n", loss);
+        // printf("loss is %.10f\n", loss);
 
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);

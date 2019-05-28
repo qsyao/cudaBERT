@@ -187,7 +187,7 @@ def convert_examples_to_features(examples, max_seq_length, tokenizer):
                 label = example.label))
     return features
 
-with open('/home/wenxh/zyc/bert_train/cuda_bert/data/deepqa_train_10w.tsv', "r", encoding="utf8") as f:
+with open('deepqa_train_10w.tsv', "r", encoding="utf8") as f:
     data = f.readlines()
     lines = []
     for line in data:

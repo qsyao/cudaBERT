@@ -84,19 +84,19 @@ op_BatchedLinear::op_BatchedLinear(std::string key_query_kernel,
             beta_1_t = 1.0;
             beta_2_t = 1.0;
 
-            query_kernel_m_t = handle->global_malloc_manage_float.get_new_head_point(n1);
-            query_kernel_v_t = handle->global_malloc_manage_float.get_new_head_point(n1);
-            key_kernel_m_t = handle->global_malloc_manage_float.get_new_head_point(n1);
-            key_kernel_v_t = handle->global_malloc_manage_float.get_new_head_point(n1);
-            val_kernel_m_t = handle->global_malloc_manage_float.get_new_head_point(n1);
-            val_kernel_v_t = handle->global_malloc_manage_float.get_new_head_point(n1);
+            checkCudaErrors(cudaMalloc((void **)&query_kernel_m_t, n1));
+            checkCudaErrors(cudaMalloc((void **)&query_kernel_v_t, n1));
+            checkCudaErrors(cudaMalloc((void **)&key_kernel_m_t, n1));
+            checkCudaErrors(cudaMalloc((void **)&key_kernel_v_t, n1));
+            checkCudaErrors(cudaMalloc((void **)&val_kernel_m_t, n1));
+            checkCudaErrors(cudaMalloc((void **)&val_kernel_v_t, n1));
 
-            query_bias_m_t = handle->global_malloc_manage_float.get_new_head_point(n2);
-            query_bias_v_t = handle->global_malloc_manage_float.get_new_head_point(n2);
-            key_bias_m_t = handle->global_malloc_manage_float.get_new_head_point(n2);
-            key_bias_v_t = handle->global_malloc_manage_float.get_new_head_point(n2);
-            val_bias_m_t = handle->global_malloc_manage_float.get_new_head_point(n2);
-            val_bias_v_t = handle->global_malloc_manage_float.get_new_head_point(n2);
+            checkCudaErrors(cudaMalloc((void **)&query_bias_m_t, n2));
+            checkCudaErrors(cudaMalloc((void **)&query_bias_v_t, n2));
+            checkCudaErrors(cudaMalloc((void **)&key_bias_m_t, n2));
+            checkCudaErrors(cudaMalloc((void **)&key_bias_v_t, n2));
+            checkCudaErrors(cudaMalloc((void **)&val_bias_m_t, n2));
+            checkCudaErrors(cudaMalloc((void **)&val_bias_v_t, n2));
 
             weight_decay_rate = handle->weight_decay_rate;
             beta_1 = handle->beta_1;
@@ -105,14 +105,14 @@ op_BatchedLinear::op_BatchedLinear(std::string key_query_kernel,
             step = 0;
         }
         else if(handle->optim_method == "momentum") {
-            momentum_query_kernel_v = handle->global_malloc_manage_float.get_new_head_point(n1);
-            momentum_query_bias_v = handle->global_malloc_manage_float.get_new_head_point(n2);
+            checkCudaErrors(cudaMalloc((void **)&momentum_query_kernel_v, n1));
+            checkCudaErrors(cudaMalloc((void **)&momentum_query_bias_v, n2));
 
-            momentum_key_kernel_v = handle->global_malloc_manage_float.get_new_head_point(n1);
-            momentum_key_bias_v = handle->global_malloc_manage_float.get_new_head_point(n2);
+            checkCudaErrors(cudaMalloc((void **)&momentum_key_kernel_v, n1));
+            checkCudaErrors(cudaMalloc((void **)&momentum_key_bias_v, n2));
 
-            momentum_val_kernel_v = handle->global_malloc_manage_float.get_new_head_point(n1);
-            momentum_val_bias_v = handle->global_malloc_manage_float.get_new_head_point(n2);
+            checkCudaErrors(cudaMalloc((void **)&momentum_val_kernel_v, n1));
+            checkCudaErrors(cudaMalloc((void **)&momentum_key_bias_v, n2));
 
             learning_rate = handle->learning_rate;
             momentum_beta = handle->momentum_beta;
@@ -303,8 +303,22 @@ void op_Linear::update_weights(size_t n1, size_t n2) {
         step += 1;
     }
     else if(handle->optim_method == "momentum") {
-        apply_momentum_running_time(kernel, grad_kernel, n1, momentum_kernel_v, learning_rate, momentum_beta, handle, step);
-        apply_momentum_running_time(bias, grad_bias, n2, momentum_bias_v, learning_rate, momentum_beta, handle, step);
+        apply_momentum_running_time(kernel, 
+                                    grad_kernel, 
+                                    n1, 
+                                    momentum_kernel_v, 
+                                    learning_rate, 
+                                    momentum_beta, 
+                                    handle, 
+                                    step);
+        apply_momentum_running_time(bias, 
+                                    grad_bias, 
+                                    n2,
+                                    momentum_bias_v, 
+                                    learning_rate, 
+                                    momentum_beta, 
+                                    handle, 
+                                    step);
         step += 1;
     }
 }

@@ -2,8 +2,14 @@
 #include "load_model.h"
 #include "../ops/linear.cuh"
 
-bert::bert(bool BERT_Large, int num_gpu, std::string dir, bool is_train, bool optimRunningTime, int num_classes,
-           std::string optim_method, float lr) {
+bert::bert(bool BERT_Large,
+           int num_gpu, 
+           std::string dir, 
+           bool is_train, 
+           bool optimRunningTime, 
+           int num_classes,
+           std::string optim_method, 
+           float lr) {
     checkCudaErrors(cudaSetDevice(num_gpu));
     handle = new global_handle(BERT_Large, dir, optimRunningTime, is_train, num_classes);
     if (is_train) {
@@ -38,17 +44,22 @@ void bert::init_ops() {
 
         op_Linear *linear = new op_Linear(num_layer + "attention_output_dense_kernel",
                                           num_layer + "attention_output_dense_bias",
-                                          handle, handle->hidden_size * handle->hidden_size, handle->hidden_size);
+                                          handle, handle->hidden_size * handle->hidden_size, 
+                                          handle->hidden_size);
         attention_linear.push_back(linear);
 
         linear = new op_Linear(num_layer + "intermediate_dense_kernel",
                                num_layer + "intermediate_dense_bias",
-                               handle, handle->hidden_size * handle->intermediate_size, handle->intermediate_size);
+                               handle, 
+                               handle->hidden_size * handle->intermediate_size, 
+                               handle->intermediate_size);
         intermediate_linear.push_back(linear);
 
         linear = new op_Linear(num_layer + "output_dense_kernel",
                                num_layer + "output_dense_bias",
-                               handle, handle->intermediate_size * handle->hidden_size, handle->hidden_size);
+                               handle, 
+                               handle->intermediate_size * handle->hidden_size, 
+                               handle->hidden_size);
         output_linear.push_back(linear);
 
         op_Batch_Matmul *batchgemm = new op_Batch_Matmul(handle);
@@ -64,7 +75,9 @@ void bert::init_ops() {
                 num_layer + "attention_self_key_bias",
                 num_layer + "attention_self_value_kernel",
                 num_layer + "attention_self_value_bias",
-                handle, handle->hidden_size * handle->hidden_size, handle->hidden_size);
+                handle, 
+                handle->hidden_size * handle->hidden_size, 
+                handle->hidden_size);
         batched_linear.push_back(batchlinear);
 
         op_FusionTranspose *trans = new op_FusionTranspose(handle);
@@ -101,11 +114,15 @@ void bert::init_ops() {
 
     pooler_linear = new op_Linear("pooler_dense_kernel",
                                   "pooler_dense_bias",
-                                  handle, handle->hidden_size * handle->hidden_size, handle->hidden_size);
+                                  handle, 
+                                  handle->hidden_size * handle->hidden_size, 
+                                  handle->hidden_size);
 
     classify_linear = new op_Linear("classifier_kernel",
                                     "classifier_bias",
-                                    handle, handle->hidden_size * handle->num_classes, handle->num_classes);
+                                    handle, 
+                                    handle->hidden_size * handle->num_classes, 
+                                    handle->num_classes);
 
     loss = new op_CrossEntropyLoss(handle);
 
@@ -373,7 +390,8 @@ void bert::BERT_train_forward(
     float *embedding_dropout_out, *self_attention_dropout_out, *self_output_dropout_out;
 
     if (handle->is_train && handle->hidden_dropout_prob > 0 && handle->hidden_dropout_prob <= 1) {
-        embedding_dropout->forward(embedding_dropout_out, embedding_out,
+        embedding_dropout->forward(embedding_dropout_out, 
+                                   embedding_out,
                                    handle->batchsize * handle->seq_length * handle->hidden_size);
         tensor_layer = embedding_dropout_out;
     }
@@ -405,7 +423,9 @@ void bert::BERT_train_forward(
                               false,
                               true);
 
-        mask[i]->forward(query_key_gemm, attention_mask, sqrt(handle->hidden_size / handle->num_attention_heads));
+        mask[i]->forward(query_key_gemm, 
+                         attention_mask, 
+                         sqrt(handle->hidden_size / handle->num_attention_heads));
 
         softmax[i]->forward(query_key_gemm,
                             batchsize * num_attention_heads * seq_length,
@@ -617,13 +637,17 @@ float bert::classify_train(int *classes, float *pooler_out, size_t num_classes) 
             deal_dropout = self_output_dropout[i]->grad_input;
         }
 
-        attention_linear[i]->backward(deal_dropout, handle->batchsize * handle->seq_length,
-                                      handle->hidden_size, handle->hidden_size);
+        attention_linear[i]->backward(deal_dropout, 
+                                      handle->batchsize * handle->seq_length,
+                                      handle->hidden_size, 
+                                      handle->hidden_size);
 
         merge_heads[i]->backward(attention_linear[i]->grad_input, 1, false);
 
-        head_value[i]->backward(merge_heads[i]->grad_input, handle->batchsize * handle->num_attention_heads,
-                                handle->seq_length, handle->seq_length,
+        head_value[i]->backward(merge_heads[i]->grad_input,
+                                handle->batchsize * handle->num_attention_heads,
+                                handle->seq_length, 
+                                handle->seq_length,
                                 handle->hidden_size / handle->num_attention_heads);
 
         deal_dropout = head_value[i]->grad_input;
@@ -664,18 +688,14 @@ float bert::classify_train(int *classes, float *pooler_out, size_t num_classes) 
 
         merge_heads[i]->backward(dout1, 3, true);
 
-        batched_linear[i]->backward(merge_heads[i]->grad_input, attention_layernorm[i]->grad_input,
-                                    handle->batchsize * handle->seq_length, handle->hidden_size, handle->hidden_size);
-        {
-            dim3 threads(1024, 1, 1);
-            dim3 blocks(min((long) 65535, handle->hidden_size * handle->batchsize * handle->seq_length / 1024) + 1, 1,
-                        1);
-            MemoryCpyLinear<float> << < blocks, threads, 0, handle->cal_stream >> > (
-                    tensor_layer_grad_input, batched_linear[i]->grad_input, handle->hidden_size * handle->batchsize *
-                                                                            handle->seq_length, handle->hidden_size *
-                                                                                                handle->batchsize *
-                                                                                                handle->seq_length);
-        }
+        batched_linear[i]->backward(merge_heads[i]->grad_input, 
+                                    attention_layernorm[i]->grad_input,
+                                    handle->batchsize * handle->seq_length, 
+                                    handle->hidden_size, 
+                                    handle->hidden_size);
+
+        tensor_layer_grad_input = batched_linear[i]->grad_input;
+        
         if (handle->optim_running_time)
             handle->global_malloc_manage_float.reuse_layer_mem();
     }

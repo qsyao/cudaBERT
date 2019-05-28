@@ -35,11 +35,12 @@ class op_Linear : public op_kernel{
                 beta_1_t = 1.0;
                 beta_2_t = 1.0;
 
-                kernel_m_t = handle->global_malloc_manage_float.get_new_head_point(n1);
-                kernel_v_t = handle->global_malloc_manage_float.get_new_head_point(n1);
+                checkCudaErrors(cudaMalloc((void **)&kernel_m_t, n1));
+                checkCudaErrors(cudaMalloc((void **)&kernel_v_t, n1));
 
-                bias_m_t = handle->global_malloc_manage_float.get_new_head_point(n2);
-                bias_v_t = handle->global_malloc_manage_float.get_new_head_point(n2);
+                checkCudaErrors(cudaMalloc((void **)&bias_m_t, n2));
+                checkCudaErrors(cudaMalloc((void **)&bias_v_t, n2));
+                
                 epsilon = handle->epsilon;
                 step = 0;
             }

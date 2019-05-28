@@ -3,7 +3,8 @@
 
 int main(int argc, char *argv[]){
    if (argc == 1) {
-       test_train(8, 128, 100, false);
+       test_train(8, 200, 10, false);
+    //    bert_train(8, 200, false, 0);
    }
    else{
        test_train(std::stoi(argv[1]), std::stoi(argv[2]), std::stoi(argv[3]), false, std::stoi(argv[4]));

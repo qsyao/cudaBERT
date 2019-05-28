@@ -24,10 +24,6 @@ public:
         token_type_embedding = look_up_tts(handle->tts, keys)->gpu_mem;
         len_token_type_embedding = look_up_tts(handle->tts, keys)->num_elements;
 
-        std::cout << "len_word_embedding: " << len_word_embedding << std::endl;
-        std::cout << "len_position_embedding: " << len_position_embedding << std::endl;
-        std::cout << "len_token_type_embedding: " << len_token_type_embedding << std::endl;
-
         if (handle->is_train) {
             if (handle->optim_method == "sgd") {
                 learning_rate = handle->learning_rate;

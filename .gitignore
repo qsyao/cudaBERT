@@ -17,3 +17,6 @@ cnpy/example1
 cnpy/Makefile
 cnpy/libcnpy*
 data/
+*.bin
+*.tsv
+vocab.txt
