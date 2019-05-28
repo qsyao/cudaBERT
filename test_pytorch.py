@@ -28,75 +28,98 @@ def batch_inputs(input, batchsize):
         ret.append(input)
     return ret
 
-seq_length = 128
-batchsize = 1
-Iters = 1
+def main(batchsize, seq_length, Iters, is_large):
+    print("batchsize : {} seq_length : {} is_large : {}".format(batchsize, seq_length, is_large))
+    str_large = "large" if is_large else "base"
 
-tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+    tokenizer = BertTokenizer.from_pretrained('bert-'+str_large+'-uncased')
 
-# Tokenized input
-text = "Who was Jim Henson ? Jim Henson was a puppeteer"
-tokenized_text = tokenizer.tokenize(text)
-masked_index = 6
-print("tokenized_text {}".format(tokenized_text))
-tokenized_text[masked_index] = '[MASK]'
-assert tokenized_text == ['who', 'was', 'jim', 'henson', '?', 'jim', '[MASK]', 'was', 'a', 'puppet', '##eer']
-segments_ids = [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1]
-attention_mask = [1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0]
-next_sentence_label = [1]
+    # Tokenized input
+    text = "Who was Jim Henson ? Jim Henson was a puppeteer"
+    tokenized_text = tokenizer.tokenize(text)
+    masked_index = 6
+    # print("tokenized_text {}".format(tokenized_text))
+    tokenized_text[masked_index] = '[MASK]'
+    assert tokenized_text == ['who', 'was', 'jim', 'henson', '?', 'jim', '[MASK]', 'was', 'a', 'puppet', '##eer']
+    segments_ids = [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1]
+    attention_mask = [1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0]
+    next_sentence_label = [1]
 
-tokenized_text = seq_to_100(tokenized_text, seq_length)
-segments_ids = seq_to_100(segments_ids, seq_length)
-attention_mask = seq_to_100(attention_mask, seq_length)
+    tokenized_text = seq_to_100(tokenized_text, seq_length)
+    segments_ids = seq_to_100(segments_ids, seq_length)
+    attention_mask = seq_to_100(attention_mask, seq_length)
 
-indexed_tokens = tokenizer.convert_tokens_to_ids(tokenized_text)
+    indexed_tokens = tokenizer.convert_tokens_to_ids(tokenized_text)
 
-indexed_tokens = batch_inputs(indexed_tokens, batchsize)
-segments_ids = batch_inputs(segments_ids, batchsize)
-attention_mask = batch_inputs(attention_mask, batchsize)
-next_sentence_label = batch_inputs(next_sentence_label, batchsize)
+    indexed_tokens = batch_inputs(indexed_tokens, batchsize)
+    segments_ids = batch_inputs(segments_ids, batchsize)
+    attention_mask = batch_inputs(attention_mask, batchsize)
+    next_sentence_label = batch_inputs(next_sentence_label, batchsize)
 
-tokens_tensor = torch.tensor(indexed_tokens)
-segments_tensors = torch.tensor(segments_ids)
-attention_mask = torch.tensor(attention_mask)
-next_sentence_label = torch.tensor(next_sentence_label)
-print("tokens_tensor {}".format(tokens_tensor))
-print("segments_tensors {}".format(segments_tensors))
-print("attention_mask {}".format(attention_mask))
+    tokens_tensor = torch.tensor(indexed_tokens)
+    segments_tensors = torch.tensor(segments_ids)
+    attention_mask = torch.tensor(attention_mask)
+    next_sentence_label = torch.tensor(next_sentence_label)
+    # print("tokens_tensor {}".format(tokens_tensor))
+    # print("segments_tensors {}".format(segments_tensors))
+    # print("attention_mask {}".format(attention_mask))
 
 
-load_start = time.time()
-model = BertForSequenceClassification.from_pretrained('bert-base-uncased', num_labels=2)
-# model.eval()
+    load_start = time.time()
+    model = BertForSequenceClassification.from_pretrained('bert-'+str_large+'-uncased', num_labels=2)
+    # model.eval()
 
-# for layer in model.modules():
-#    if isinstance(layer, torch.nn.Linear):
-#         print(layer)
-#         print(layer.weight)
-#         print(layer.bias)
+    # for layer in model.modules():
+    #    if isinstance(layer, torch.nn.Linear):
+    #         print(layer)
+    #         print(layer.weight)
+    #         print(layer.bias)
 
-def adjust_learning_rate(optimizer, decay_rate=.99):
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = param_group['lr'] * decay_rate
+    def adjust_learning_rate(optimizer, decay_rate=.99):
+        for param_group in optimizer.param_groups:
+            param_group['lr'] = param_group['lr'] * decay_rate
 
-gpu = 1
-if gpu:
-    model = model.cuda()
-    tokens_tensor = tokens_tensor.cuda()
-    segments_tensors = segments_tensors.cuda()
-    attention_mask = attention_mask.cuda()
-    next_sentence_label = next_sentence_label.cuda()
+    gpu = 1
+    if gpu:
+        model = model.cuda()
+        tokens_tensor = tokens_tensor.cuda()
+        segments_tensors = segments_tensors.cuda()
+        attention_mask = attention_mask.cuda()
+        next_sentence_label = next_sentence_label.cuda()
 
-optimizer = optim.SGD(model.parameters(), lr=0.001)
-# optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
-# optimizer = optim.Adam(model.parameters())
+    optimizer = optim.SGD(model.parameters(), lr=0.001)
+    # optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
+    # optimizer = optim.Adam(model.parameters())
 
-for i in range(Iters):
-    print("Round: ", i)
-    optimizer.zero_grad()
-    class_loss = model(tokens_tensor, segments_tensors, attention_mask, next_sentence_label)
-    print("class_loss {}".format(class_loss))
-    class_loss.backward()
-    optimizer.step()
-    adjust_learning_rate(optimizer)
-    # print("optimizer.lr {}".format(optimizer.lr))
+    start = time.time()
+
+    for i in range(Iters):
+        # print("Round: ", i)
+        optimizer.zero_grad()
+        class_loss = model(tokens_tensor, segments_tensors, attention_mask, next_sentence_label)
+        # print("class_loss {}".format(class_loss))
+        class_loss.backward()
+        optimizer.step()
+        adjust_learning_rate(optimizer)
+        # print("optimizer.lr {}".format(optimizer.lr))
+    end = time.time()
+    avg_time = (end - start) / Iters
+    print(" Avg time ：{}ms".format(avg_time * 1000))
+
+if __name__ == "__main__":
+    main(1, 128, 300, False)
+    main(1, 512, 300, False)
+    main(2, 128, 300, False)
+    main(2, 512, 300, False)
+    main(4, 128, 300, False)
+    main(4, 512, 300, False)
+    main(8, 128, 300, False)
+    main(8, 512, 300, False)
+    main(16, 128, 300, False)
+    main(1, 128, 300, True)
+    main(1, 512, 300, True)
+    main(2, 128, 300, True)
+    main(2, 512, 300, True)
+    main(4, 128, 300, True)
+    main(8, 128, 300, True)
+

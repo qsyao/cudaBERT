@@ -488,7 +488,7 @@ void test_train(int batchsize, int seq_length, int nIter, bool is_large, int num
         learning_rate *= learning_rate_decay;
         model->update_lr_end();
 
-        printf("loss is %.10f\n", loss);
+        // printf("loss is %.10f\n", loss);
 
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
@@ -497,7 +497,7 @@ void test_train(int batchsize, int seq_length, int nIter, bool is_large, int num
     }
 
     delete model;
-
+    cudaDeviceReset();
     double dSeconds = total_time / (double) nIter;
     printf("Time= %.2f(ms)\n", dSeconds);
 }

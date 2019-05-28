@@ -59,7 +59,7 @@ global_handle::~global_handle(){
 }
 
 void global_handle::init_cudamemory(int batchsize, int seq_length){
-    global_malloc_manage_int.init(batchsize * seq_length * 7 + 2 * batchsize);
+    global_malloc_manage_int.init(batchsize * seq_length * 10 + 2 * batchsize);
 
     size_t left, total, real_Memcost;
     checkCudaErrors(cudaMemGetInfo(&left, &total));
@@ -68,7 +68,7 @@ void global_handle::init_cudamemory(int batchsize, int seq_length){
 
     std::cout<<"CUDA Memory INFO: Free: "<< left / 1024 / 1024 <<"MB"<<std::endl;
     left = left / sizeof(float);
-    global_malloc_manage_float.init(left);
+    
     
     if(!is_train)
         real_Memcost =  batchsize*seq_length*hidden_size + 
@@ -83,12 +83,34 @@ void global_handle::init_cudamemory(int batchsize, int seq_length){
                     3*hidden_size*hidden_size) + 
                     batchsize*hidden_size*2 +
                     batchsize*seq_length*hidden_size;
-    // else:
-        
+    else
+        real_Memcost = batchsize * seq_length * hidden_size * 4 +
+                       batchsize * seq_length * 2 +
+                       num_hidden_layers * (
+                           batchsize * seq_length * 4 + 
+                           16 * batchsize * seq_length * hidden_size +
+                           3 * batchsize * num_attention_heads * seq_length * seq_length +
+                           2 * batchsize * seq_length * intermediate_size
+                       )  +
+                       batchsize * hidden_size * 5 + //forward end
+                       batchsize * hidden_size * 5 +
+                       hidden_size * 3 + 
+                       intermediate_size * hidden_size * 5 +
+                       hidden_size * hidden_size * 1 + 
+                       batchsize * seq_length * intermediate_size * 2 +
+                       batchsize * seq_length * hidden_size * 27 +
+                       batchsize * num_attention_heads * seq_length * seq_length * 4 +
+                       33000 * hidden_size;
     
-    int max_mem_size = batchsize * seq_length;
-    std::cout<<"Support max_seq_length: "<<max_train_seq_length<<" max_batchsize: "
-                <<batchsize<<std::endl;
+    if (real_Memcost > left){
+        std::cout<<" Not Enough memory !"<<std::endl;
+        assert(false);
+    }
+    global_malloc_manage_float.init(real_Memcost);
+    std::cout<<"Malloc for Batchsize : "<< batchsize
+             <<"  Seq_length : " << seq_length 
+             <<" Total : "<< real_Memcost * sizeof(float) / 1024 / 1024
+             <<"MB" << std::endl;
     
 }
 

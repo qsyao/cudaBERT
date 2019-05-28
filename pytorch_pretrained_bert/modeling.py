@@ -718,7 +718,6 @@ class BertPreTrainedModel(nn.Module):
             *inputs, **kwargs: additional input for the specific Bert class
                 (ex: num_labels for BertForSequenceClassification)
         """
-        print("from_pretrained\n\n\n\n")
         if pretrained_model_name_or_path in PRETRAINED_MODEL_ARCHIVE_MAP:
             archive_file = PRETRAINED_MODEL_ARCHIVE_MAP[pretrained_model_name_or_path]
         else:
@@ -758,10 +757,8 @@ class BertPreTrainedModel(nn.Module):
         config.attention_probs_dropout_prob = 0
         config.hidden_dropout_prob = 0
         logger.info("Model config {}".format(config))
-        print("Model config {}".format(config))
         # Instantiate model.
         model = cls(config, *inputs, **kwargs)
-        print("load data\n\n\n\n")
         if state_dict is None and not from_tf:
             weights_path = os.path.join(serialization_dir, WEIGHTS_NAME)
             state_dict = torch.load(weights_path, map_location='cpu' if not torch.cuda.is_available() else None)
@@ -809,13 +806,9 @@ class BertPreTrainedModel(nn.Module):
             start_prefix = 'bert.'
         load(model, prefix=start_prefix)
         if len(missing_keys) > 0:
-            print("Weights of {} not initialized from pretrained model: {}".format(
-                model.__class__.__name__, missing_keys))
             logger.info("Weights of {} not initialized from pretrained model: {}".format(
                 model.__class__.__name__, missing_keys))
         if len(unexpected_keys) > 0:
-            print("Weights from pretrained model not used in {}: {}".format(
-                model.__class__.__name__, unexpected_keys))
             logger.info("Weights from pretrained model not used in {}: {}".format(
                 model.__class__.__name__, unexpected_keys))
         if len(error_msgs) > 0:
