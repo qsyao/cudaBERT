@@ -123,3 +123,9 @@ We release a branch for retraining （by cuda)，but it is hard to use for real 
 [torch_bert](https://github.com/huggingface/pytorch-pretrained-BERT)
 
 [cnpy](https://github.com/rogersce/cnpy)
+
+## Authors
+
+- [Yuchao Zheng](https://github.com/YuchaoZheng)
+- [Qingsong Yao](https://github.com/qsyao)
+
