@@ -115,6 +115,10 @@ Described in name.txt, and names can't be diffence from names in Name.txt;
 
 Names of other layers are like layer_0
 
+## Retraining
+
+We release a branch for retraining （by cuda)，but it is hard to use for real dataset.  This is more about testing code run time.  Our retraining code run 30% faster than pytorch and tensorflow.
+
 ## Reference
 [torch_bert](https://github.com/huggingface/pytorch-pretrained-BERT)
 
