@@ -1,8 +1,8 @@
 # A Fast Muti-processing BERT_Inference System
 
-- BERT Encoder Implentment by CUDA and has been Optimized (Using Kernel Fusion etc)
-- Front end is implented by python, for pruning useless sequence length at the end of string.(disabled by mask)
-- Tokenlizer and additional layer for BERT_Encoder is implented by Pytorch, Users can define their own additional layer.
+- BERT Encoder Backend is implemented by CUDA and has been optimized (Using Kernel Fusion etc)
+- Frontend is implemented by python, for pruning useless sequence length at the end of string.(disabled by mask)
+- Tokenlizer and additional layer for BERT_Encoder is implemented by Pytorch, users can define their own additional layers.
 
 4x Faster than Pytorch:
 
