@@ -1,4 +1,6 @@
 # A Fast Muti-processing BERT_Inference System
+代码地址https://github.com/qsyao/cudaBERT
+走过路过star一个哈
 
 - BERT Encoder Backend is implemented by CUDA and has been optimized (Using Kernel Fusion etc)
 - Frontend is implemented by python, for pruning useless sequence length at the end of string.(disabled by mask)
@@ -6,7 +8,7 @@
 
 4x Faster than Pytorch:
 
-10W lines DataSet on GTX 1080TI
+10W lines DataSet on GTX 1080TI (Large model, Seq_length = 200)
 
 pytorch | CUDA_BERT
 ---- | ----
