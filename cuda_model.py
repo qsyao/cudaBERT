@@ -37,5 +37,5 @@ class Cuda_BERT(object):
         return output
         
     def __del__(self):
-        from pybert import release_model
-        release_model(self.model)
+        from pybert import unload_model
+        unload_model(self.model)
