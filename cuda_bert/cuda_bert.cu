@@ -31,6 +31,11 @@ bert* init_model(bool large = false,
     bert* ret = new bert(large, num_gpu, dir, max_batchsize, max_seq_length);
     return ret;
 }
+void release_model(bert* model)
+{
+    delete model;
+}
+
 
 Retval Cuda_Inference(bert* model,
                     int* words,
