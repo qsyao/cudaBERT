@@ -36,3 +36,6 @@ class Cuda_BERT(object):
                             batchsize, seq_length, attention_mask)
         return output
         
+    def __del__(self):
+        from pybert import unload_model
+        unload_model(self.model)

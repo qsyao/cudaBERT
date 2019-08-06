@@ -15,12 +15,18 @@ init_model = lib.init_model
 init_model.argtypes = [c_bool, c_int, c_int, c_int, c_char_p]
 init_model.restype = c_void_p
 
+release_model=lib.release_model
+release_model.argtypes=[c_void_p]
+
 def load_model(is_large_model, model_dir, num_gpu=0, max_batchsize = 0, max_seq_length = 0):
     '''
         max_batchsize and max_seq_length will allocate memory
         the inference batches can't be larger
     '''
     return init_model(is_large_model, num_gpu, max_batchsize, max_seq_length, bytes(model_dir, encoding='utf-8'))
+
+def unload_model(model):
+    release_model(model)
 
 inference = lib.Cuda_Inference
 inference.argtypes = [c_void_p, ndpointer(numpy.int32), ndpointer(numpy.int32),\
